@@ -1,45 +1,85 @@
+<div align="center">
+
 # 简账
 
-离线个人收支手账 Android App。首个测试版：`1.0.0-beta.1`。
+### 记录收支，看见生活
 
-## 安装与使用
+温暖、简洁的个人离线收支手账，让日常记录与消费分析更从容。
 
-签名 APK 放在本地 `output/`，发布后同时提供于私有 GitHub 仓库 `ace865/jianzhang` 的 Releases。将 APK 传到 Android 手机，允许相应文件管理器安装应用后打开。支持 Android 7.0（API 24）及以上；首次使用是空账本。
+[![App checks](https://github.com/ace865/jianzhang/actions/workflows/check.yml/badge.svg)](https://github.com/ace865/jianzhang/actions/workflows/check.yml)
+![Android](https://img.shields.io/badge/Android-7.0%2B-47794F)
+![Flutter](https://img.shields.io/badge/Flutter-3.47.6-02569B)
+[![MIT](https://img.shields.io/badge/License-MIT-BC6243)](LICENSE)
 
-- 首页右上角月亮 / 太阳：在 A 暖白陶土、C 深色暖灰之间切换。
-- 「记一笔」：录入支出或收入，选择分类、日期、支付方式及备注。点击已有账单可编辑或删除。
-- 「总览」「分析」：日 / 月 / 年切换，点击日期或左右箭头选择时间。图表和分类排名可点击查看明细。
-- 「账单」：按日期、类型、分类、支付方式、备注搜索，支持日历及每日小记。
-- 「设置」：管理分类、月度总预算 / 分类预算，支持 80% / 100% 预算提醒、复制上月预算和减少动画。
-- 完整迁移请用「备份账本」的 JSON 文件；恢复会先校验，再确认整体替换。CSV 是表格查看格式，不用于完整恢复。
+[下载安卓 APK](https://github.com/ace865/jianzhang/releases/download/v1.0.0-beta.1/jianzhang-1.0.0-beta.1.apk) · [下载源码 ZIP](https://github.com/ace865/jianzhang/releases/download/v1.0.0-beta.1/jianzhang-1.0.0-beta.1-source.zip) · [浏览源码](https://github.com/ace865/jianzhang/tree/main/lib) · [版本发布页](https://github.com/ace865/jianzhang/releases/tag/v1.0.0-beta.1)
 
-不需要注册，不联网同步，不自动读取微信 / 支付宝，不提供账户余额、转账或理财建议。结余指所选期间收入减支出。
+</div>
 
-## 数据保护
+## 界面预览
 
-账本保存在本机 SQLite 数据库，金额以整数分存储。恢复使用事务，任何一步失败均回滚。正式包不请求网络权限；系统云备份 / 设备迁移已禁用，个人迁移以手动 JSON 备份为准。
+暖白陶土与深色暖灰两套主题，搭配单色线性图标。首页右上角即可切换主题。
 
-**卸载应用、清除数据或手机损坏可能丢失账本。请定期将 JSON 备份复制到另一台设备。** 数据库和导出的 JSON / CSV 未做应用级加密，应放在你信任的位置。导出的表格对公式开头进行转义。
+以下为样例账本的应用渲染预览；首次安装为空账本，图片不是手机实拍。
 
-## 开发与验证
+| 总览 · 浅色 | 账单 · 浅色 | 分析 · 浅色 | 记账 · 浅色 |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/images/light-overview.png" alt="浅色总览" width="210"> | <img src="docs/images/light-ledger.png" alt="浅色账单" width="210"> | <img src="docs/images/light-analysis.png" alt="浅色分析" width="210"> | <img src="docs/images/light-entry.png" alt="浅色记账" width="210"> |
 
-环境：Flutter 3.47.6 / Dart 3.13.5，Android SDK / JDK 21。依赖锁定在 `pubspec.lock`。
+| 总览 · 深色 | 账单 · 深色 | 分析 · 深色 | 记账 · 深色 |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/images/dark-overview.png" alt="深色总览" width="210"> | <img src="docs/images/dark-ledger.png" alt="深色账单" width="210"> | <img src="docs/images/dark-analysis.png" alt="深色分析" width="210"> | <img src="docs/images/dark-entry.png" alt="深色记账" width="210"> |
 
-```powershell
-& 'D:\Dev\flutter\bin\flutter.bat' pub get
-& 'D:\Dev\flutter\bin\flutter.bat' analyze
-& 'D:\Dev\flutter\bin\flutter.bat' test
-./scripts/build-release.ps1
+## 功能
+
+| 功能 | 说明 |
+| --- | --- |
+| 收支记录 | 新增、编辑、删除账单，记录分类、日期、支付方式和备注 |
+| 消费分析 | 日 / 月 / 年统计、分类占比、趋势图与点击查看明细 |
+| 账单检索 | 日期、类型、分类、支付方式筛选及备注搜索 |
+| 预算管理 | 月度总预算、分类预算、80% / 100% 提醒、复制上月预算 |
+| 日历手账 | 按日查看账单，留下每日小记 |
+| 数据迁移 | 完整 JSON 备份与恢复，CSV 导出 |
+| 视觉体验 | 双主题、轻量页面过渡、减少动画选项 |
+
+无需注册，离线使用；手动录入收支。结余表示所选期间收入减支出，不表示银行或支付账户余额。
+
+## 下载与安装
+
+当前版本：**1.0.0-beta.1**，首个安卓测试版。支持 Android 7.0 及以上，兼容 ARM64、ARMv7 和 x86_64，通用 APK 约 69 MB。
+
+1. 在[发布页](https://github.com/ace865/jianzhang/releases/tag/v1.0.0-beta.1)下载 APK，并传到安卓手机。
+2. 打开文件，按手机提示允许相应文件管理器安装应用。
+3. 点击「记一笔」开始记录；点击已有账单可以编辑或删除。
+
+20 项自动化测试与 GitHub 构建检查通过，安装包签名校验通过。手机安装、系统文件选择器及实际流畅度仍待真机验收，详见[验证记录](docs/verification-1.0.0-beta.1.md)。
+
+## 数据与备份
+
+记录保存在本机 SQLite 数据库。完整 JSON 备份包含账单、分类、预算、小记和设置；恢复前进行校验与替换确认，失败时事务回滚。CSV 用于表格查看，不用于完整恢复。
+
+请定期将 JSON 备份复制到另一台设备。卸载应用或清除数据会删除本机账本；数据库及导出文件未做应用级加密。升级时覆盖安装同签名版本，并先保存备份。
+
+## 源码与开发
+
+源码包含 Flutter 应用、Android 工程、依赖锁文件、测试与构建脚本。当前版本源码附件以 `v1.0.0-beta.1` 标签为基础，补充许可证和构建文档，应用代码与 APK 对应；主分支继续更新发布资料。
+
+```sh
+git clone https://github.com/ace865/jianzhang.git
+cd jianzhang
+flutter pub get --enforce-lockfile
+flutter analyze --no-pub
+flutter test --no-pub
+flutter build apk --debug --no-pub
 ```
 
-构建脚本可通过 `FlutterRoot`、`AndroidSdk`、`JavaRoot` 参数配置工具位置。Windows 跨盘 Pub 缓存已关闭 Kotlin 增量编译以规避相对路径错误。
+开发环境为 Flutter 3.47.6 / Dart 3.13.5、JDK 21 和 Android SDK。完整安装与签名说明见[构建指南](docs/BUILD.md)，参与共创见[贡献指南](CONTRIBUTING.md)。
 
-签名材料在 `.signing/`，不会提交 Git。密码由 Windows DPAPI 加密，仅当前 Windows 用户 / 环境可解密；后续升级必须保持同一签名。换电脑前应安全迁移密钥和密码，**不要提交到仓库或发在聊天里**。安装包、个人账本及备份也不纳入源码历史。
+## 反馈与共创
 
-测试涵盖金额、跨月 / 跨年、闰年、筛选、预算、分类停用、备份校验、失败回滚、一万条记录、CSV 转义、关闭重开持久化，以及记账删除、主题保存、页面切换、小屏 / 大字适配。界面测试截图在 `output/test-artifacts/`，为隔离样例数据库的 Flutter 渲染，不是手机实测。性能与系统文件选择器需要真机验收；不承诺未经测量的帧率。
+欢迎通过 [Issues](https://github.com/ace865/jianzhang/issues) 提交问题和建议，通过 Pull Request 参与开发。问题反馈请附手机型号、安卓版本、应用版本和复现步骤，截图请遮挡个人账目。
 
-## 版本管理
+每个可运行应用版本更新版本号、变更记录和版本标签，安装包及对应源码通过 Releases 提供。
 
-开发完成后即时提交和推送；每个可运行版本更新版本号与 `CHANGELOG.md`，通过检查后打 `vX.Y.Z` 标签（测试版附 `-beta.N`），签名 APK 附在私有 Release 中。不得覆盖已有标签或强推。详见 `AGENTS.md`。
+## 开源许可
 
-项目使用 Flutter、sqflite、fl_chart、file_picker、Lucide 图标及 Noto Serif SC；应用内开源许可页与字体 OFL 许可随包提供。设计稿保存在 `design/`。
+项目自有代码采用 [MIT License](LICENSE)，版权归 `ace865 and contributors` 所有。第三方依赖和字体保留各自许可，见[第三方说明](THIRD_PARTY_NOTICES.md)。

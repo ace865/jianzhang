@@ -15,6 +15,7 @@ coverage/
 .signing/
 output/test-artifacts/
 output/*.apk
+output/
 *.log
 *.db
 *.db-journal
