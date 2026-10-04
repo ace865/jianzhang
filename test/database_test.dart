@@ -275,6 +275,17 @@ void main() {
     expect(csv, contains('"1.23"'));
     expect(csv, contains('"\'=HYPERLINK(""x"")\n备注"'));
   });
+  test(
+    'future entries in the current month remain visible in the trend',
+    () async {
+      final now = DateTime.now();
+      final last = DateTime(now.year, now.month + 1, 0);
+      await store.saveEntry(entry('future', 700, date: dayKey(last)));
+      final points = await store.trend(PeriodWindow(Period.month, now));
+      expect(points.length, last.day);
+      expect(points.last.expense, 700);
+    },
+  );
   test('records persist when a database file is closed and reopened', () async {
     final directory = await Directory.systemTemp.createTemp(
       'jianzhang-persistence-test-',

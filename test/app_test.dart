@@ -143,6 +143,18 @@ void main() {
     await settle(tester);
     await tester.tap(find.text('−¥32.50'));
     await settle(tester);
+    await tester.ensureVisible(find.text('8').last);
+    await tester.tap(
+      find.text('8').last,
+    ); // Two decimal places: ignore extra input.
+    await tester.tap(find.text('保存修改'));
+    await settle(tester);
+    final edited = await tester.runAsync(
+      () => store.entries(const EntryFilter()),
+    );
+    expect(edited!.single.cents, 3250);
+    await tester.tap(find.text('−¥32.50'));
+    await settle(tester);
     await tester.tap(find.byTooltip('删除账单'));
     await settle(tester);
     await tester.tap(find.widgetWithText(FilledButton, '删除'));
@@ -174,6 +186,66 @@ void main() {
       await settle(tester);
       expect(tester.takeException(), isNull, reason: 'keyboard');
       tester.view.resetViewInsets();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('budget and category management save through their dialogs', (
+    tester,
+  ) async {
+    await launch(tester);
+    await tester.tap(find.text('月度预算'));
+    await settle(tester);
+    await tester.tap(find.text('总支出预算'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), '1000');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await settle(tester);
+    final budgets = await tester.runAsync(() => store.budgets(DateTime.now()));
+    expect(budgets!.single.limit, 100000);
+    await tester.tap(find.byType(BackButton));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('nav-3')));
+    await settle(tester);
+    await tester.tap(find.text('分类管理'));
+    await settle(tester);
+    await tester.tap(find.text('添加支出分类'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextField), '宠物');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await settle(tester);
+    expect(controller.categories.any((c) => c.name == '宠物'), isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'calendar notes persist and editor navigation preserves unsaved draft',
+    (tester) async {
+      await launch(tester);
+      await tester.tap(find.byKey(const ValueKey('nav-1')));
+      await settle(tester);
+      await tester.tap(find.text('日历'));
+      await settle(tester);
+      final day = find.text('${DateTime.now().day}').last;
+      await tester.ensureVisible(day);
+      await tester.tap(day);
+      await settle(tester);
+      final note = find.byType(TextField).last;
+      await tester.enterText(note, '保留未保存的小记');
+      await tester.tap(find.byTooltip('为这一天记账'));
+      await settle(tester);
+      await tester.tap(find.byTooltip('关闭'));
+      await settle(tester);
+      expect(find.text('保留未保存的小记'), findsOneWidget);
+      await tester.ensureVisible(find.text('保存小记'));
+      await tester.tap(find.text('保存小记'));
+      await settle(tester);
+      expect(
+        await tester.runAsync(() => store.note(DateTime.now())),
+        '保留未保存的小记',
+      );
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
   );

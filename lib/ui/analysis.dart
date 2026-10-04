@@ -192,7 +192,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                               ? '月度支出趋势'
                               : '月度收入趋势',
                           trailing: Text(
-                            _window.caption,
+                            _window.label,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),

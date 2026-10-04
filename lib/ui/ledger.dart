@@ -763,7 +763,10 @@ class _DaySheetState extends State<DaySheet> {
                       widget.controller,
                       date: widget.date,
                     );
-                    if (mounted) setState(() => _future = _read());
+                    if (mounted)
+                      setState(() {
+                        _future = _read();
+                      });
                   },
                   icon: const Icon(LucideIcons.plus),
                 ),
@@ -771,7 +774,9 @@ class _DaySheetState extends State<DaySheet> {
             ),
             AsyncContent(
               future: _future,
-              retry: () => setState(() => _future = _read()),
+              retry: () => setState(() {
+                _future = _read();
+              }),
               builder: (entries) => Column(
                 children: [
                   if (entries.isEmpty)
@@ -790,7 +795,10 @@ class _DaySheetState extends State<DaySheet> {
                             widget.controller,
                             entry: entry,
                           );
-                          if (mounted) setState(() => _future = _read());
+                          if (mounted)
+                            setState(() {
+                              _future = _read();
+                            });
                         },
                       ),
                     ),
