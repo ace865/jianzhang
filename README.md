@@ -2,7 +2,7 @@
 
 简账是一款个人离线收支手账。你可以手动记录收入和支出，查看统计、设置预算，并导出本地备份。应用无需注册，账本保存在手机上。
 
-项目使用 Flutter 和 Dart 开发，目前提供 Android 安装包。仓库包含 Android 工程，尚未提供 iOS、桌面或网页版本。
+项目使用 Flutter 和 Dart 开发，目标是支持 iOS 和 Android。当前仅提供 Android 测试版，iOS 尚未实现，仓库没有 iOS 工程。桌面和网页版本不在当前目标内。
 
 [![App checks](https://github.com/ace865/jianzhang/actions/workflows/check.yml/badge.svg)](https://github.com/ace865/jianzhang/actions/workflows/check.yml)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-47794F)
@@ -116,9 +116,11 @@ flutter build apk --debug --no-pub
 
 在 [Issues](https://github.com/ace865/jianzhang/issues) 提交问题时，请附手机型号、安卓版本、应用版本、复现步骤和预期结果。截图中请遮挡个人账目。
 
-代码修改从 `main` 创建分支，再提交 Pull Request（合并请求）。开发流程见[贡献指南](CONTRIBUTING.md)，项目约定见 [AGENTS.md](AGENTS.md)。
+开发与版本规则集中维护在[统一规范](docs/development.md)。Codex 从 [AGENTS.md](AGENTS.md) 读取入口，Claude 从 [CLAUDE.md](CLAUDE.md) 读取入口。
 
-每个可运行应用版本需要更新版本号、变更记录和版本标签。安装包与对应源码发布到 Releases。纯文档修改不更新应用版本。
+常规协作从 `main` 创建分支，再提交 Pull Request（合并请求）。流程与直接更新主分支的例外见[贡献指南](CONTRIBUTING.md)。
+
+版本采用 `主版本.次版本.修订版本`：大更新升主版本，新增功能升次版本，普通优化和修复升修订版本。升级某一位后，右侧数字归零；构建号独立递增。测试版、跨平台发布和编号示例见统一规范。纯文档修改不更新应用版本。
 
 仓库公开，请勿提交真实账本、备份、签名密钥、密码、令牌或机器专用配置。
 

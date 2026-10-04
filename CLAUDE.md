@@ -1,10 +1,10 @@
-# Codex 开发入口
+# Claude 开发入口
 
 ## 必读规范
 
-开始任务前，读取并遵守 [统一开发与版本规范](docs/development.md)。这份规范适用于开发者、Codex、Claude 和其他开发工具。
+开始任务前，读取并遵守 [统一开发与版本规范](docs/development.md)。公共规则与 Codex 使用同一来源，本文件不维护副本。
 
-产品说明见 [README](README.md)，协作流程见 [贡献指南](CONTRIBUTING.md)，构建步骤见 [构建指南](docs/BUILD.md)。公共规则集中维护在统一规范中，修改规则时同步检查相关文档。
+产品说明见 [README](README.md)，协作流程见 [贡献指南](CONTRIBUTING.md)，构建步骤见 [构建指南](docs/BUILD.md)。
 
 ## 执行与交付
 
