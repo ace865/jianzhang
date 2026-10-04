@@ -763,10 +763,11 @@ class _DaySheetState extends State<DaySheet> {
                       widget.controller,
                       date: widget.date,
                     );
-                    if (mounted)
+                    if (mounted) {
                       setState(() {
                         _future = _read();
                       });
+                    }
                   },
                   icon: const Icon(LucideIcons.plus),
                 ),
@@ -795,10 +796,11 @@ class _DaySheetState extends State<DaySheet> {
                             widget.controller,
                             entry: entry,
                           );
-                          if (mounted)
+                          if (mounted) {
                             setState(() {
                               _future = _read();
                             });
+                          }
                         },
                       ),
                     ),
