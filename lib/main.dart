@@ -48,8 +48,14 @@ class _StartupState extends State<Startup> {
       final controller = LedgerController(database);
       await controller.initialize();
       if (mounted) setState(() => _controller = controller);
-    } catch (_) {
-      if (mounted) setState(() => _error = '账本暂时无法打开。请检查设备可用空间后重试，原有账本不会被清空。');
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error is FormatException
+              ? error.message
+              : '账本暂时无法打开。请检查设备可用空间后重试，原有账本不会被清空。',
+        );
+      }
     }
   }
 

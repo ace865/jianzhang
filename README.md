@@ -9,22 +9,22 @@
 ![Flutter](https://img.shields.io/badge/Flutter-3.47.6-02569B)
 [![MIT](https://img.shields.io/badge/License-MIT-BC6243)](LICENSE)
 
-[下载安卓安装包](https://github.com/ace865/jianzhang/releases/download/v1.0.0-beta.1/jianzhang-1.0.0-beta.1.apk) · [下载源码 ZIP](https://github.com/ace865/jianzhang/releases/download/v1.0.0-beta.1/jianzhang-1.0.0-beta.1-source.zip) · [查看发布记录](https://github.com/ace865/jianzhang/releases/tag/v1.0.0-beta.1)
+[下载安卓 APK](https://github.com/ace865/jianzhang/releases/download/v1.2.0-beta.2/jianzhang-android-1.2.0-beta.2-build4.apk) · [浏览源码](https://github.com/ace865/jianzhang/tree/v1.2.0-beta.2) · [下载源码 ZIP](https://github.com/ace865/jianzhang/releases/download/v1.2.0-beta.2/jianzhang-1.2.0-beta.2-source.zip) · [发布说明](https://github.com/ace865/jianzhang/releases/tag/v1.2.0-beta.2)
 
 ## 安装与试用
 
-当前版本为 `1.0.0-beta.1`，首个安卓公开测试版。支持 Android 7.0 及以上，安装包包含 ARM64、ARMv7 和 x86_64 三种架构。
+当前整合测试版为 `1.2.0-beta.2+4`，同一安装包支持微信导入与可选 AI 分析。支持 Android 7.0 及以上，包含 ARM64、ARMv7 和 x86_64 三种架构。旧版本和附件保留在历史发布页。
 
-1. 在[发布页](https://github.com/ace865/jianzhang/releases/tag/v1.0.0-beta.1)下载 APK（Android Package，安卓安装包）。
-2. 在安卓手机上打开文件，按系统提示允许文件管理器安装应用。
-3. 点击“记一笔”录入收支。点击已有账单可以编辑或删除。
-4. 在“设置”中导出完整备份，再用测试账单检查恢复结果。
+1. 已安装旧版的用户先在设置中导出完整 JSON 备份，保留旧应用，不卸载、不清除数据。
+2. 在[发布页](https://github.com/ace865/jianzhang/releases/tag/v1.2.0-beta.2)下载 APK，按系统提示覆盖安装；同包名、原签名及更高构建号支持升级，但真机升级仍待验收。
+3. “设置 → 导入微信账单”选择 CSV／XLSX，预览分类、重复及特殊交易后确认导入。
+4. 如需 AI，在“设置 → AI 服务”填写完整 HTTPS 聊天端点、模型和个人密钥，再从“分析 → AI 分析”主动预览并发送。测试连接和分析可能产生服务商费用。
 
 首次安装为空账本。建议先验证备份和恢复，再开始记录长期账目。
 
 ## 功能与范围
 
-开发分支新增微信账单导入，支持 CSV / .xlsx 本地预览、去重与分类确认，详见[导入说明](docs/wechat-import.md)。正式下载入口仍指向已发布的 1.0.0-beta.1；新版本等待审阅与验收。
+微信 CSV／XLSX 只在本机解析，支持预览、分类和重复识别，详见[导入说明](docs/wechat-import.md)。AI 是可选功能，不配置接口仍可离线记账，详见 [AI 使用说明](docs/ai-analysis.md)。
 
 | 功能 | 实现内容 |
 | --- | --- |
@@ -35,10 +35,20 @@
 | 日历手账 | 按日查看账单，手动保存每日小记 |
 | 备份与导出 | 导出和恢复完整 JSON 备份，导出 CSV 账单表格 |
 | 界面设置 | 切换暖白陶土和深色暖灰主题，保存主题选择，设置减少动画 |
+| 微信导入 | CSV／XLSX 本地解析、去重、分类调整；退款、转账等需明确确认 |
+| AI 分析 | 自选 OpenAI 兼容接口，统计汇总报告、预算建议、流式追问与加密本地历史 |
 
 预算使用达到 80% 或 100% 时，页面会显示提示。当前没有系统通知功能。
 
-收支由你手动录入，应用没有自动读取支付账单或云同步功能。“结余”表示所选期间收入减支出；支付方式用于标记账单，应用不管理银行或支付账户余额。
+### 可选 AI 分析
+
+分析页提供汇总报告与追问，设置页填写完整 HTTPS 聊天端点、模型和自己的密钥。默认逐步回复，也可切换完整回复。报告及聊天独立加密保存在本机，支持历史查看和删除。
+
+只有用户主动确认发送时联网；发送统计汇总、分类名称和必要聊天上下文，不上传单笔账单、备注、小记或原始支付文件。AI 不修改账本。记录和密钥不包含在账本备份中，服务商可能计费及保留数据。详见 [AI 使用与隐私说明](docs/ai-analysis.md)。
+
+当前安装包已整合微信导入与 AI；真实服务商兼容性和手机安全存储尚未验证。
+
+收支由你手动录入或主动导入微信文件，应用不会自动读取支付账户，也没有云同步功能。“结余”表示所选期间收入减支出；支付方式用于标记账单，应用不管理银行或支付账户余额。
 
 ## 界面预览
 
@@ -52,6 +62,14 @@
 | :---: | :---: | :---: | :---: |
 | <img src="docs/images/dark-overview.png" alt="深色总览" width="210"> | <img src="docs/images/dark-ledger.png" alt="深色账单" width="210"> | <img src="docs/images/dark-analysis.png" alt="深色分析" width="210"> | <img src="docs/images/dark-entry.png" alt="深色记账" width="210"> |
 
+### 新功能预览
+
+以下同样是虚构账本及模拟 AI 回复的应用渲染，不是真机或真实模型结果。
+
+| 微信导入 · 浅色 | 微信导入 · 深色 | AI 分析 · 浅色 | AI 分析 · 深色 |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/images/light-wechat-import.png" width="210" alt="浅色导入"> | <img src="docs/images/dark-wechat-import.png" width="210" alt="深色导入"> | <img src="docs/images/light-ai-analysis.png" width="210" alt="浅色 AI"> | <img src="docs/images/dark-ai-analysis.png" width="210" alt="深色 AI"> |
+
 ## 数据保存与备份
 
 账单保存在本机 SQLite 数据库中。完整 JSON（JavaScript Object Notation，数据交换格式）备份包含账单、分类、预算、每日小记和设置。CSV（Comma-Separated Values，逗号分隔值）导出用于表格查看，不支持完整恢复。
@@ -64,16 +82,16 @@
 
 ## 验证状态
 
-`1.0.0-beta.1` 的验证记录包含以下结果：
+`1.2.0-beta.2+4` 的验证范围：
 
-- Flutter 静态检查通过，20 项自动化测试通过。
-- Android 调试包和个人签名发行包构建成功，发行包签名校验通过。
+- Flutter 静态检查、78 项自动化测试、Android 调试和原签名发行构建；实际结果见[本版验证记录](docs/verification-1.2.0-beta.2.md)。
+- 自动检查增加 UTC、上海和纽约时区的 Excel 日历回归。
 - 金额处理、日期边界、账单筛选、备份往返、损坏备份保护和事务回滚已有测试覆盖。
 - 界面测试覆盖记账、编辑、删除、主题切换，以及部分小屏和字体放大场景。
 
 GitHub Actions 会检查代码格式、运行静态检查和测试，并构建 Android 调试包。结果见[自动检查记录](https://github.com/ace865/jianzhang/actions/workflows/check.yml)。
 
-手机安装、系统文件选择器、杀进程或重启后的数据保留，以及同签名覆盖升级仍待真机验收。帧率、功耗和冷启动时间尚无测量结果。完整范围见[版本验证记录](docs/verification-1.0.0-beta.1.md)。
+手机安装、系统文件选择器、手机安全存储、真实 AI 服务，以及同签名覆盖升级仍待真机验收。帧率、功耗和冷启动时间尚无测量结果。完整范围见[版本验证记录](docs/verification-1.2.0-beta.2.md)。本次发布经用户明确授权例外合并，请 songyu 补审，不代表已获协作者批准。
 
 ## 源码与开发
 
@@ -112,7 +130,7 @@ flutter build apk --debug --no-pub
 
 官方升级包由维护者使用原签名构建。协作者使用自己的测试签名，测试包无法覆盖官方签名版本。当前工程在未配置发行签名时，会使用调试签名构建 release 包；发布前必须确认签名配置。
 
-版本源码 ZIP 以 `v1.0.0-beta.1` 标签为基础，补充许可证和构建文档。附件中的应用代码与已发布安装包对应，具体说明见[源码版本说明](docs/SOURCE_VERSION.md)。主分支会继续更新。
+新版源码 ZIP 完整来自 `v1.2.0-beta.2` 标签，包含 Flutter/Android 工程、锁文件、测试、构建脚本和文档，与本版 APK 对应。旧首版附件的补充文档规则仍保留，见[源码版本说明](docs/SOURCE_VERSION.md)。主分支会继续更新。
 
 ## 反馈与共创
 
