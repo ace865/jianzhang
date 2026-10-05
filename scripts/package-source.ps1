@@ -1,4 +1,4 @@
-param([string]$Tag = 'v1.0.0-beta.1')
+param([Parameter(Mandatory=$true)][string]$Tag)
 $ErrorActionPreference = 'Stop'
 if ($Tag -notmatch '^v\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$') { throw '无效版本标签' }
 $sourceAppRoot = Split-Path -Parent $PSScriptRoot
@@ -7,6 +7,9 @@ try {
   $sourceCommit = (git rev-parse "${Tag}^{commit}").Trim()
   if ($LASTEXITCODE -ne 0) { throw '找不到版本标签' }
   $sourceVersion = $Tag.Substring(1)
+  $sourcePubspec = (git show "${sourceCommit}:pubspec.yaml") -join "`n"
+  if ($sourcePubspec -notmatch '(?m)^version:\s*([^+\s]+)\+\d+') { throw '标签缺少应用版本' }
+  if ($Matches[1] -ne $sourceVersion) { throw '标签与源码应用版本不一致' }
   $sourcePrefix = "jianzhang-$sourceVersion/"
   $sourceOutput = Join-Path $sourceAppRoot 'output'
   New-Item -ItemType Directory -Path $sourceOutput -Force | Out-Null
@@ -14,13 +17,18 @@ try {
   if (Test-Path -LiteralPath $sourceZipPath) { throw '源码包已经存在，避免覆盖既有版本' }
   git -c core.autocrlf=false archive --format=zip "--prefix=$sourcePrefix" "--output=$sourceZipPath" $Tag
   if ($LASTEXITCODE -ne 0) { throw '源码打包失败' }
-  $sourceSupplements = @('LICENSE','THIRD_PARTY_NOTICES.md','CONTRIBUTING.md','docs/BUILD.md','docs/SOURCE_VERSION.md')
-  $sourceSupplements += @(Get-ChildItem -LiteralPath (Join-Path $sourceAppRoot 'docs/licenses') -File | ForEach-Object { 'docs/licenses/' + $_.Name })
+  # Only the historical first beta needs supplemental documentation.
+  # New tags archive their own complete documents without mixing in working-tree files.
+  $sourceSupplements = @()
+  if ($Tag -eq 'v1.0.0-beta.1') {
+    $sourceSupplements = @('LICENSE','THIRD_PARTY_NOTICES.md','CONTRIBUTING.md','AGENTS.md','CLAUDE.md','docs/development.md','docs/BUILD.md','docs/SOURCE_VERSION.md')
+    $sourceSupplements += @(Get-ChildItem -LiteralPath (Join-Path $sourceAppRoot 'docs/licenses') -File | ForEach-Object { 'docs/licenses/' + $_.Name })
+  }
   $sourceZip = [System.IO.Compression.ZipFile]::Open($sourceZipPath, [System.IO.Compression.ZipArchiveMode]::Update)
   try {
     foreach ($sourceRelative in $sourceSupplements) {
       $sourceEntryName = $sourcePrefix + $sourceRelative
-      if ($sourceZip.GetEntry($sourceEntryName)) { throw "补充文档与标签内容冲突：$sourceRelative" }
+      if ($sourceZip.GetEntry($sourceEntryName)) { continue }
       [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($sourceZip, (Join-Path $sourceAppRoot $sourceRelative), $sourceEntryName) | Out-Null
     }
   } finally { $sourceZip.Dispose() }

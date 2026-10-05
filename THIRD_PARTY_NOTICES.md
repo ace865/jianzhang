@@ -12,5 +12,10 @@
 | path | 路径处理 | [BSD 3-Clause](docs/licenses/path.txt) |
 | path_provider | 平台路径 | [BSD 3-Clause](docs/licenses/path_provider.txt) |
 | Noto Serif SC | 标题字体 | [SIL Open Font License 1.1](assets/fonts/OFL.txt) |
+| archive | XLSX 容器读取 | [BSD 3-Clause](docs/licenses/archive.txt) |
+| xml | XLSX 数据 XML 解析 | [MIT](docs/licenses/xml.txt) |
+| csv | CSV 解析 | [MIT](docs/licenses/csv.txt) |
+| charset_converter | 系统字符编码转换 | [MIT](docs/licenses/charset_converter.txt) |
+| crypto | 本地去重摘要 | [BSD 3-Clause](docs/licenses/crypto.txt) |
 
 副本保留上游原始版权声明。其他传递依赖许可随相应包提供，使用或分发时仍需遵守其许可要求。

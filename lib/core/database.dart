@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import 'models.dart';
+import 'wechat_import.dart';
 
 class LedgerDatabase {
   LedgerDatabase._(this.db);
@@ -19,8 +20,11 @@ class LedgerDatabase {
     final database = await selected.openDatabase(
       location,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onConfigure: (db) async => db.execute('PRAGMA foreign_keys = ON'),
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) await _createImportSources(db);
+        },
         onCreate: (db, version) async {
           await db.execute(
             'CREATE TABLE categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, icon TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN (\'expense\',\'income\')), active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL)',
@@ -48,6 +52,7 @@ class LedgerDatabase {
             batch.insert('categories', category.toMap());
           }
           await batch.commit(noResult: true);
+          await _createImportSources(db);
         },
       ),
     );
@@ -55,6 +60,144 @@ class LedgerDatabase {
   }
 
   Future<void> close() => db.close();
+
+  static Future<void> _createImportSources(DatabaseExecutor db) async {
+    await db.execute(
+      'CREATE TABLE import_sources (entry_id TEXT PRIMARY KEY REFERENCES entries(id) ON DELETE CASCADE, source TEXT NOT NULL CHECK(source=\'wechat\'), source_key TEXT UNIQUE, fingerprint TEXT NOT NULL)',
+    );
+    await db.execute(
+      'CREATE INDEX import_fingerprint ON import_sources(fingerprint)',
+    );
+  }
+
+  Future<List<ImportItem>> previewWechat(List<WechatRow> rows) =>
+      db.transaction((txn) => _previewWechat(txn, rows));
+
+  Future<List<ImportItem>> _previewWechat(
+    DatabaseExecutor txn,
+    List<WechatRow> rows,
+  ) async {
+    final cats = (await txn.query('categories')).map(Category.fromMap).toList();
+    final sources = await txn.query('import_sources');
+    final byKey = {
+      for (final s in sources)
+        if (s['source_key'] != null) s['source_key']: s['fingerprint'],
+    };
+    final fingerprints = sources.map((s) => s['fingerprint']).toSet();
+    final manual = (await txn.rawQuery(
+      'SELECT DISTINCT day,cents,kind FROM entries WHERE id NOT IN (SELECT entry_id FROM import_sources)',
+    )).map((e) => '${e['day']}/${e['cents']}/${e['kind']}').toSet();
+    final groups = <String, Set<String>>{};
+    for (final row in rows) {
+      if (row.sourceKey.isNotEmpty &&
+          row.disposition != ImportDisposition.invalid) {
+        groups.putIfAbsent(row.sourceKey, () => {}).add(row.fingerprint);
+      }
+    }
+    final seen = <String>{};
+    return rows.map((row) {
+      var state = row.disposition, reason = row.reason;
+      if (![
+        ImportDisposition.invalid,
+        ImportDisposition.excluded,
+      ].contains(state)) {
+        if (row.sourceKey.isNotEmpty &&
+            ((groups[row.sourceKey]?.length ?? 0) > 1 ||
+                (byKey.containsKey(row.sourceKey) &&
+                    byKey[row.sourceKey] != row.fingerprint))) {
+          state = ImportDisposition.conflict;
+          reason = '同一单号内容冲突，请核对原账单；不会覆盖旧账';
+        } else if (row.sourceKey.isNotEmpty &&
+            (byKey.containsKey(row.sourceKey) || !seen.add(row.sourceKey))) {
+          state = ImportDisposition.duplicate;
+          reason = '交易单号重复，跳过';
+        } else if (fingerprints.contains(row.fingerprint) ||
+            manual.contains(
+              '${dayKey(row.date!)}/${row.cents}/${row.kind?.name}',
+            )) {
+          state = ImportDisposition.review;
+          reason = '与已有账单疑似重复，请确认是否仍要导入';
+        }
+      }
+      final kind = row.kind ?? EntryKind.expense;
+      return ImportItem(
+        row,
+        state,
+        reason,
+        [
+              ImportDisposition.invalid,
+              ImportDisposition.excluded,
+              ImportDisposition.duplicate,
+              ImportDisposition.conflict,
+            ].contains(state)
+            ? ''
+            : (suggestImportCategory(row, kind, cats) ?? ''),
+      );
+    }).toList();
+  }
+
+  Future<ImportResult> importWechat(List<ImportItem> items) async {
+    if (items.length > importMaxRows) throw const FormatException('导入条数超限');
+    return db.transaction((txn) async {
+      // Recompute against the transaction snapshot, including concurrent changes.
+      final current = await _previewWechat(
+        txn,
+        items.map((i) => i.row).toList(),
+      );
+      final cats = {
+        for (final c in (await txn.query('categories')).map(Category.fromMap))
+          c.id: c,
+      };
+      var inserted = 0, duplicates = 0, unselected = 0;
+      final batch = txn.batch();
+      for (var n = 0; n < items.length; n++) {
+        final item = items[n], fresh = current[n], row = item.row;
+        if (fresh.disposition == ImportDisposition.duplicate) {
+          duplicates++;
+          continue;
+        }
+        if (!item.selected) {
+          unselected++;
+          continue;
+        }
+        final category = cats[item.categoryId];
+        if (fresh.blocked ||
+            item.kind == null ||
+            (fresh.needsConfirmation && !item.confirmed) ||
+            row.date == null ||
+            row.cents == null ||
+            category == null ||
+            !category.active ||
+            category.kind != item.kind) {
+          throw const FormatException('预览已变化或存在未确认账单，请重新预览；原账本未更改');
+        }
+        final id = newId();
+        final note = row.description;
+        batch.insert(
+          'entries',
+          LedgerEntry(
+            id: id,
+            kind: item.kind!,
+            cents: row.cents!,
+            categoryId: item.categoryId,
+            date: row.date!,
+            payment: '微信',
+            note: note.length > 500 ? note.substring(0, 500) : note,
+            createdAt: DateTime.now().millisecondsSinceEpoch,
+          ).toMap(),
+        );
+        batch.insert('import_sources', {
+          'entry_id': id,
+          'source': 'wechat',
+          'source_key': row.sourceKey.isEmpty ? null : row.sourceKey,
+          'fingerprint': row.fingerprint,
+        });
+        inserted++;
+      }
+      await batch.commit(noResult: true);
+      return ImportResult(inserted, duplicates, unselected);
+    });
+  }
 
   Future<List<Category>> categories() async => (await db.query(
     'categories',
@@ -365,19 +508,21 @@ class LedgerDatabase {
   Future<Map<String, Object?>> exportBackup() => db.transaction(
     (txn) async => {
       'format': 'jianzhang',
-      'version': 1,
+      'version': 2,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
       'categories': await txn.query('categories'),
       'entries': await txn.query('entries'),
       'budgets': await txn.query('budgets'),
       'daily_notes': await txn.query('daily_notes'),
       'settings': await txn.query('settings'),
+      'import_sources': await txn.query('import_sources'),
     },
   );
   Future<void> restore(Map<String, Object?> data) async {
     validateBackup(data);
     await db.transaction((txn) async {
       for (final table in [
+        'import_sources',
         'entries',
         'budgets',
         'daily_notes',
@@ -398,6 +543,12 @@ class LedgerDatabase {
           batch.insert(table, Map<String, Object?>.from(row as Map));
         }
       }
+      for (final row
+          in (data['version'] == 2
+              ? data['import_sources'] as List
+              : <Object>[])) {
+        batch.insert('import_sources', Map<String, Object?>.from(row as Map));
+      }
       await batch.commit(noResult: true);
     });
   }
@@ -413,7 +564,7 @@ Map<String, Object?> decodeBackup(String source) {
 
 void validateBackup(Map<String, Object?> data) {
   Never fail() => throw const FormatException('备份内容不完整或格式错误，原账本未更改');
-  if (data['format'] != 'jianzhang' || data['version'] != 1) {
+  if (data['format'] != 'jianzhang' || ![1, 2].contains(data['version'])) {
     throw const FormatException('不支持此备份格式或版本');
   }
   final fields = <String, Set<String>>{
@@ -431,6 +582,8 @@ void validateBackup(Map<String, Object?> data) {
     'budgets': {'month', 'category_id', 'cents'},
     'daily_notes': {'day', 'body'},
     'settings': {'key', 'value'},
+    if (data['version'] == 2)
+      'import_sources': {'entry_id', 'source', 'source_key', 'fingerprint'},
   };
   for (final table in fields.keys) {
     if (data[table] is! List) fail();
@@ -482,6 +635,25 @@ void validateBackup(Map<String, Object?> data) {
     }
   }
   final budgetIds = <String>{};
+  if (data['version'] == 2) {
+    final sourceIds = <String>{}, keys = <String>{};
+    final digest = RegExp(r'^[a-f0-9]{64}$');
+    for (final raw in data['import_sources'] as List) {
+      final row = raw as Map;
+      if (row['entry_id'] is! String ||
+          !ids.contains(row['entry_id']) ||
+          !sourceIds.add(row['entry_id'] as String) ||
+          row['source'] != 'wechat' ||
+          row['fingerprint'] is! String ||
+          !digest.hasMatch(row['fingerprint'] as String) ||
+          (row['source_key'] != null &&
+              (row['source_key'] is! String ||
+                  !digest.hasMatch(row['source_key'] as String) ||
+                  !keys.add(row['source_key'] as String)))) {
+        fail();
+      }
+    }
+  }
   for (final raw in data['budgets'] as List) {
     final row = raw as Map;
     if (row['month'] is! String ||

@@ -6,6 +6,7 @@ import '../core/controller.dart';
 import '../core/models.dart';
 import 'common.dart';
 import 'theme.dart';
+import 'wechat_import.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.controller});
@@ -161,6 +162,22 @@ class SettingsScreen extends StatelessWidget {
           padding: EdgeInsets.zero,
           child: Column(
             children: [
+              _row(
+                context,
+                LucideIcons.download,
+                '导入微信账单',
+                'CSV / .xlsx · 预览、去重与分类确认',
+                controller.busy
+                    ? null
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              WechatImportScreen(controller: controller),
+                        ),
+                      ),
+              ),
+              const Divider(indent: 16, endIndent: 16),
               _row(
                 context,
                 LucideIcons.download,
