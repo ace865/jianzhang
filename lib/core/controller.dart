@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ChangeNotifier, compute;
 
 import 'database.dart';
 import 'models.dart';
+import 'wechat_import.dart';
 
 class LedgerController extends ChangeNotifier {
   LedgerController(this.store);
@@ -66,6 +67,21 @@ class LedgerController extends ChangeNotifier {
   Future<void> delete(String id) async {
     await store.deleteEntry(id);
     await refresh();
+  }
+
+  Future<ImportResult> importWechat(List<ImportItem> items) async {
+    if (_busy) throw const FormatException('正在执行其他数据操作');
+    _busy = true;
+    notifyListeners();
+    try {
+      final result = await store.importWechat(items);
+      revision++;
+      notifyListeners();
+      return result;
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> saveCategory(Category value) async {

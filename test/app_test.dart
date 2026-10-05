@@ -11,6 +11,8 @@ import 'package:jianzhang/core/database.dart';
 import 'package:jianzhang/core/models.dart';
 import 'package:jianzhang/main.dart';
 import 'package:jianzhang/ui/entry_editor.dart';
+import 'package:jianzhang/core/wechat_import.dart';
+import 'package:jianzhang/ui/wechat_import.dart';
 
 Future<void> settle(WidgetTester tester) async {
   // SQLite runs on a real isolate, not Flutter's virtual test clock.
@@ -89,9 +91,8 @@ void main() {
       final image = await boundary.toImage(pixelRatio: 2);
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
       await Directory('output/test-artifacts').create(recursive: true);
-      await File(
-        'output/test-artifacts/$name.png',
-      ).writeAsBytes(bytes!.buffer.asUint8List());
+      await File('output/test-artifacts/$name.png')
+          .writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
   }
@@ -245,6 +246,80 @@ void main() {
         await tester.runAsync(() => store.note(DateTime.now())),
         '保留未保存的小记',
       );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'wechat preview, refund confirmation, import and small-font layout',
+    (tester) async {
+      final rows = parseWechatTable([
+        wechatHeaders,
+        [
+          '2026-10-01 12:30:00',
+          '商户消费',
+          '测试餐厅',
+          '虚构午餐',
+          '支出',
+          '12.30',
+          '零钱',
+          '支付成功',
+          'TEST-ONE',
+          'TEST-SHOP',
+          '/',
+        ],
+        [
+          '2026-10-02 13:00:00',
+          '退款',
+          '测试商店',
+          '虚构退款',
+          '收入',
+          '8.50',
+          '零钱',
+          '退款成功',
+          'TEST-TWO',
+          'TEST-SHOP-2',
+          '/',
+        ],
+      ]);
+      final items = await tester.runAsync(() => store.previewWechat(rows));
+      await launch(tester);
+      Navigator.of(tester.element(find.byType(Scaffold).first)).push(
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              WechatImportScreen(controller: controller, initialItems: items),
+        ),
+      );
+      await settle(tester);
+      await screenshot(tester, 'light-wechat-import');
+      await tester.runAsync(controller.toggleTheme);
+      await settle(tester);
+      await screenshot(tester, 'dark-wechat-import');
+      tester.view.physicalSize = const Size(320, 640);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.8;
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      tester.view.physicalSize = const Size(400, 880);
+      tester.platformDispatcher.textScaleFactorTestValue = 1;
+      await settle(tester);
+      await tester.ensureVisible(find.textContaining('调整').last);
+      await tester.tap(find.textContaining('调整').last);
+      await settle(tester);
+      expect(find.text('确认这笔交易的含义'), findsOneWidget);
+      await tester.tap(find.text('确认并选入'));
+      await settle(tester);
+      expect(find.text('导入 2 笔'), findsOneWidget);
+      await tester.tap(find.text('导入 2 笔'));
+      await settle(tester);
+      await tester.tap(find.text('确认导入'));
+      await settle(tester);
+      expect(find.textContaining('导入完成：成功 2 笔'), findsOneWidget);
+      final totals = await tester.runAsync(
+        () => store.totals(const EntryFilter()),
+      );
+      expect(totals!.expense, 1230);
+      expect(totals.income, 850);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
