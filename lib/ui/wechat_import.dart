@@ -367,7 +367,7 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                             ),
                           if (items != null) ...[
                             Text(
-                              '共 ${items.length} 笔 · 可导入 ${items.where((i) => i.disposition == ImportDisposition.ready).length} · 重复 ${items.where((i) => i.disposition == ImportDisposition.duplicate).length}\n待确认 ${items.where((i) => i.disposition == ImportDisposition.review && !i.confirmed).length} · 异常/冲突 ${items.where((i) => i.disposition == ImportDisposition.invalid || i.disposition == ImportDisposition.conflict).length} · 不入账 ${items.where((i) => i.disposition == ImportDisposition.excluded).length}',
+                              '共 ${items.length} 笔 · 可导入 ${items.where((i) => i.disposition == ImportDisposition.ready && !i.needsCategory).length} · 重复 ${items.where((i) => i.disposition == ImportDisposition.duplicate).length}\n待确认 ${items.where((i) => i.disposition == ImportDisposition.review && !i.confirmed).length} · 异常/冲突 ${items.where((i) => i.disposition == ImportDisposition.invalid || i.disposition == ImportDisposition.conflict).length} · 不入账 ${items.where((i) => i.disposition == ImportDisposition.excluded).length}',
                             ),
                             Text(
                               '缺少分类 ${items.where((i) => i.needsCategory).length} 笔 · 已选 ${selected.length} 笔 · 收入 ${money(income)} · 支出 ${money(expense)}',

@@ -187,6 +187,25 @@ void main() {
   test(
     'Excel calendar regression preserves wall-clock fields across DST',
     () async {
+      // Assert the CI process actually uses the requested zone.
+      if (!Platform.isWindows) {
+        final zone = Platform.environment['TZ'];
+        final offsets = {'UTC': 0, 'Asia/Shanghai': 8, 'America/New_York': -4};
+        if (offsets.containsKey(zone)) {
+          expect(
+            DateTime(2026, 10, 1).timeZoneOffset,
+            Duration(hours: offsets[zone]!),
+          );
+        }
+        if (zone == 'America/New_York') {
+          final old = DateTime(
+            1899,
+            12,
+            30,
+          ).add(Duration(seconds: (46296.979166666664 * 86400).round()));
+          expect([old.day, old.hour, old.minute], [2, 0, 30]);
+        }
+      }
       for (final expected in [
         DateTime.utc(2026, 10, 1, 23, 30),
         DateTime.utc(2026, 3, 8, 0, 30),
@@ -580,6 +599,34 @@ void main() {
         ),
         contains('1.01'),
       );
+    },
+  );
+  testWidgets(
+    'missing category stays unselected even after select eligible action',
+    (tester) async {
+      final controller = LedgerController(store);
+      await tester.runAsync(() async {
+        await store.db.update('categories', {'active': 0});
+        await controller.initialize();
+      });
+      final items = await tester.runAsync(
+        () => store.previewWechat(parsed([bill()])),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ledgerTheme(false),
+          home: WechatImportScreen(controller: controller, initialItems: items),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('缺少可用分类'), findsOneWidget);
+      await tester.tap(find.text('选择可导入账单'));
+      await tester.pumpAndSettle();
+      expect(find.text('导入 0 笔'), findsOneWidget);
+      expect(items!.single.selected, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      controller.dispose();
     },
   );
   for (final dark in [false, true]) {

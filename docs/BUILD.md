@@ -8,7 +8,7 @@
 
 Flutter **3.47.6 stable**（自带 Dart 3.13.5）、JDK **21**、Android SDK Platform **36**、Platform Tools 及 Android 命令行工具。使用 `flutter doctor -v` 检查工具链，`flutter doctor --android-licenses` 接受 SDK 许可。NDK / CMake 由工具链按工程配置安装。
 
-源码 ZIP 解压后进入包含 `pubspec.yaml` 的目录。附件应用代码对应 `v1.0.0-beta.1`，补充文档见[源码版本说明](SOURCE_VERSION.md)。
+源码 ZIP 解压后进入包含 `pubspec.yaml` 的目录。当前附件完整对应 `v1.2.0-beta.2` 标签；首版历史补充文档规则见[源码版本说明](SOURCE_VERSION.md)。
 
 ## 安装依赖与检查
 
@@ -22,7 +22,7 @@ flutter build apk --debug --no-pub
 
 debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准备所需 Gradle 启动文件与本地配置。界面测试在 `output/test-artifacts/` 生成样例渲染图，不需要模拟器。GitHub Actions 已验证 Linux 环境的检查和 Android debug 构建。
 
-AI 开发分支要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。新增依赖支持 Android/iOS 的共享 API，但当前仅构建 Android。开发分支不等于下载页已发布版本，兼容边界见 [AI 验证记录](verification-1.2.0-beta.1.md)。
+项目要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。依赖支持 Android/iOS 的共享 API，但当前仅构建 Android。整合版的检查和未验收项见 [本版验证记录](verification-1.2.0-beta.2.md)。
 
 ## 个人签名发行包（Windows PowerShell）
 
