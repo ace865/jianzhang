@@ -20,6 +20,11 @@ class LedgerDatabase {
       location,
       options: OpenDatabaseOptions(
         version: 1,
+        onDowngrade: (db, oldVersion, newVersion) async {
+          throw const FormatException(
+            '账本来自较新的应用版本。请保留现有数据，等待包含微信导入的整合版本；不要卸载或清除数据。',
+          );
+        },
         onConfigure: (db) async => db.execute('PRAGMA foreign_keys = ON'),
         onCreate: (db, version) async {
           await db.execute(

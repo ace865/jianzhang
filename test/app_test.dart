@@ -89,9 +89,8 @@ void main() {
       final image = await boundary.toImage(pixelRatio: 2);
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
       await Directory('output/test-artifacts').create(recursive: true);
-      await File(
-        'output/test-artifacts/$name.png',
-      ).writeAsBytes(bytes!.buffer.asUint8List());
+      await File('output/test-artifacts/$name.png')
+          .writeAsBytes(bytes!.buffer.asUint8List());
       image.dispose();
     });
   }

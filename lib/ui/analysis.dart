@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/controller.dart';
 import '../core/models.dart';
 import 'charts.dart';
+import 'ai.dart';
 import 'common.dart';
 import 'theme.dart';
 
@@ -94,6 +95,33 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           }),
         ),
         const SizedBox(height: 18),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionTitle('AI 分析'),
+              const SizedBox(height: 8),
+              Text(
+                '${_window.label} · ${_kind == EntryKind.expense ? '支出' : '收入'}解读；只发送汇总，可查看发送内容',
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => AiAnalysisScreen(
+                      controller: widget.controller,
+                      window: _window,
+                      focus: _kind,
+                    ),
+                  ),
+                ),
+                child: const Text('查看 / 生成分析'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
         AsyncContent(
           future: _future,
           retry: () => setState(_reload),
@@ -148,9 +176,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                       Text(category.name),
                                       Text(
                                         '${item.count} 笔',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
                                       ),
                                     ],
                                   ),
@@ -167,9 +195,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   child: Text(
                                     '${(item.cents / total * 100).toStringAsFixed(1)}%',
                                     textAlign: TextAlign.right,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
                                   ),
                                 ),
                               ],

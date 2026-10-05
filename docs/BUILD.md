@@ -22,6 +22,8 @@ flutter build apk --debug --no-pub
 
 debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准备所需 Gradle 启动文件与本地配置。界面测试在 `output/test-artifacts/` 生成样例渲染图，不需要模拟器。GitHub Actions 已验证 Linux 环境的检查和 Android debug 构建。
 
+AI 开发分支要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。新增依赖支持 Android/iOS 的共享 API，但当前仅构建 Android。开发分支不等于下载页已发布版本，兼容边界见 [AI 验证记录](verification-1.2.0-beta.1.md)。
+
 ## 个人签名发行包（Windows PowerShell）
 
 ```powershell
@@ -29,6 +31,8 @@ debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准�
 ```
 
 参数替换成自己的安装路径。脚本创建个人签名材料于 `.signing/`，构建三种架构的 release APK，复制到 `output/` 并显示 SHA-256。
+
+脚本输出 `jianzhang-android-产品版本-build构建号.apk`，拒绝覆盖同名产物。维护者原签名构建加 `-RequireExistingSignature`，缺少原密钥或密码文件时拒绝生成替代密钥。
 
 密码使用 Windows DPAPI 加密，需在原 Windows 用户 / 环境中解密。保留签名材料以便升级，不上传 Git。仓库不提供官方签名密钥；新贡献者的签名与官方 APK 不同，不能覆盖官方安装。正式发布使用维护者原签名。
 

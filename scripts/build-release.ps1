@@ -1,14 +1,21 @@
 param(
   [string]$FlutterRoot = 'D:\Dev\flutter',
   [string]$AndroidSdk = 'D:\Android\Sdk',
-  [string]$JavaRoot = 'C:\Program Files\Android\Android Studio\jbr'
+  [string]$JavaRoot = 'C:\Program Files\Android\Android Studio\jbr',
+  [switch]$RequireExistingSignature
 )
 $ErrorActionPreference = 'Stop'
 $appRoot = Split-Path -Parent $PSScriptRoot
 $appSigning = Join-Path $appRoot '.signing'
 $appKey = Join-Path $appSigning 'jianzhang-release.p12'
 $appSecret = Join-Path $appSigning 'password.xml'
-$appVersion = ((Get-Content (Join-Path $appRoot 'pubspec.yaml') | Select-String '^version:').Line -replace '^version:\s*','').Split('+')[0]
+$appVersionParts = ((Get-Content (Join-Path $appRoot 'pubspec.yaml') | Select-String '^version:').Line -replace '^version:\s*','').Split('+')
+if ($appVersionParts.Count -ne 2 -or $appVersionParts[1] -notmatch '^[1-9][0-9]*$') { throw '版本必须包含正整数构建号。' }
+$appVersion = $appVersionParts[0]
+$appBuild = $appVersionParts[1]
+$appDestination = Join-Path $appRoot "output\jianzhang-android-$appVersion-build$appBuild.apk"
+if (Test-Path -LiteralPath $appDestination) { throw '安装包已存在，禁止覆盖；新的分发构建请增加构建号。' }
+if ($RequireExistingSignature -and (-not (Test-Path -LiteralPath $appKey) -or -not (Test-Path -LiteralPath $appSecret))) { throw '维护者原签名材料不完整，禁止生成替代密钥。' }
 New-Item -ItemType Directory -Path $appSigning -Force | Out-Null
 if (-not (Test-Path -LiteralPath $appSecret)) {
   if (Test-Path -LiteralPath $appKey) { throw '已有签名密钥但找不到密码文件，请恢复原签名材料。' }
@@ -36,8 +43,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw '安卓构建失败。' }
     $appOutput = Join-Path $appRoot 'output'
     New-Item -ItemType Directory -Path $appOutput -Force | Out-Null
-    Copy-Item -LiteralPath (Join-Path $appRoot 'build\app\outputs\flutter-apk\app-release.apk') -Destination (Join-Path $appOutput "jianzhang-$appVersion.apk")
-    Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $appOutput "jianzhang-$appVersion.apk")
+    Copy-Item -LiteralPath (Join-Path $appRoot 'build\app\outputs\flutter-apk\app-release.apk') -Destination $appDestination
+    Get-FileHash -Algorithm SHA256 -LiteralPath $appDestination
   } finally { Pop-Location }
 } finally {
   Remove-Item Env:JIANZHANG_KEY_PASSWORD -ErrorAction SilentlyContinue
