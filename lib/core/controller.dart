@@ -5,12 +5,21 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show ChangeNotifier, compute;
 
 import 'database.dart';
+import 'ai_service.dart';
 import 'models.dart';
 import 'wechat_import.dart';
 
 class LedgerController extends ChangeNotifier {
-  LedgerController(this.store);
+  LedgerController(this.store, {this._ai});
   final LedgerDatabase store;
+  AiService? _ai;
+  AiService get ai => _ai ??= AiService(store);
+  @override
+  void dispose() {
+    _ai?.dispose();
+    super.dispose();
+  }
+
   List<Category> categories = [];
   bool dark = false;
   bool reducedMotion = false;

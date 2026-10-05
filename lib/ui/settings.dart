@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/controller.dart';
 import '../core/models.dart';
 import 'common.dart';
+import 'ai.dart';
 import 'theme.dart';
 import 'wechat_import.dart';
 
@@ -154,6 +155,19 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const Divider(indent: 16, endIndent: 16),
+              _row(
+                context,
+                LucideIcons.messageSquare,
+                'AI 服务',
+                '可选联网分析 · 配置接口与管理本地聊天',
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => AiSettingsScreen(service: controller.ai),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -232,7 +246,7 @@ class SettingsScreen extends StatelessWidget {
               const SectionTitle('数据与隐私'),
               const SizedBox(height: 10),
               Text(
-                '所有记录保存在这台设备上，无需账号，离线可用。\n\n请定期保存完整备份。卸载应用或清除应用数据会删除本机账本；CSV 文件不用于恢复。备份文件未加密，请保存在自己信任的位置。',
+                '账本保存在这台设备上，无需账号，离线可用。只有你主动使用 AI 时，统计汇总和必要聊天上下文才发送到你配置的服务地址；不上传单笔账单、备注或小记。\n\n请定期保存账本备份。卸载应用或清除数据会删除本机账本及 AI 历史；AI 记录和密钥不包含在账本备份中。CSV 文件不用于恢复。账本备份未加密，请保存在信任的位置。',
                 style: TextStyle(fontSize: 13, color: ink.muted, height: 1.7),
               ),
             ],
@@ -240,7 +254,7 @@ class SettingsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          '简账 ${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.0.0-beta.1')} · 个人离线账本',
+          '简账 ${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.2.0-beta.2')} · 个人离线账本',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
@@ -250,7 +264,7 @@ class SettingsScreen extends StatelessWidget {
             applicationName: '简账',
             applicationVersion: const String.fromEnvironment(
               'FLUTTER_BUILD_NAME',
-              defaultValue: '1.0.0-beta.1',
+              defaultValue: '1.2.0-beta.2',
             ),
           ),
           child: const Text('开源许可'),
