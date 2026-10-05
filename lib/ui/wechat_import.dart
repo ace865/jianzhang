@@ -170,11 +170,12 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                       kind = value!;
                       category = widget.controller.forKind(kind).isEmpty
                           ? ''
-                          : suggestImportCategory(
-                              item.row,
-                              kind,
-                              widget.controller.categories,
-                            );
+                          : (suggestImportCategory(
+                                  item.row,
+                                  kind,
+                                  widget.controller.categories,
+                                ) ??
+                                '');
                     }),
                   ),
                   const SizedBox(height: 12),
@@ -282,14 +283,16 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
     }
   }
 
-  String _status(ImportItem item) => switch (item.disposition) {
-    ImportDisposition.ready => '可导入',
-    ImportDisposition.review => item.confirmed ? '已确认' : '待确认',
-    ImportDisposition.invalid => '异常',
-    ImportDisposition.excluded => '不入账',
-    ImportDisposition.duplicate => '重复',
-    ImportDisposition.conflict => '冲突',
-  };
+  String _status(ImportItem item) => item.needsCategory
+      ? '缺少分类'
+      : switch (item.disposition) {
+          ImportDisposition.ready => '可导入',
+          ImportDisposition.review => item.confirmed ? '已确认' : '待确认',
+          ImportDisposition.invalid => '异常',
+          ImportDisposition.excluded => '不入账',
+          ImportDisposition.duplicate => '重复',
+          ImportDisposition.conflict => '冲突',
+        };
 
   @override
   Widget build(BuildContext context) {
@@ -367,7 +370,7 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                               '共 ${items.length} 笔 · 可导入 ${items.where((i) => i.disposition == ImportDisposition.ready).length} · 重复 ${items.where((i) => i.disposition == ImportDisposition.duplicate).length}\n待确认 ${items.where((i) => i.disposition == ImportDisposition.review && !i.confirmed).length} · 异常/冲突 ${items.where((i) => i.disposition == ImportDisposition.invalid || i.disposition == ImportDisposition.conflict).length} · 不入账 ${items.where((i) => i.disposition == ImportDisposition.excluded).length}',
                             ),
                             Text(
-                              '已选 ${selected.length} 笔 · 收入 ${money(income)} · 支出 ${money(expense)}',
+                              '缺少分类 ${items.where((i) => i.needsCategory).length} 笔 · 已选 ${selected.length} 笔 · 收入 ${money(income)} · 支出 ${money(expense)}',
                             ),
                             Wrap(
                               children: [
@@ -378,6 +381,7 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                           for (final i in items) {
                                             i.selected =
                                                 !i.blocked &&
+                                                !i.needsCategory &&
                                                 (!i.needsConfirmation ||
                                                     i.confirmed);
                                           }
@@ -419,8 +423,9 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                               ? null
                               : (value) {
                                   if (value == true &&
-                                      item.needsConfirmation &&
-                                      !item.confirmed) {
+                                      (item.needsCategory ||
+                                          (item.needsConfirmation &&
+                                              !item.confirmed))) {
                                     _edit(item);
                                   } else {
                                     setState(() => item.selected = value!);
@@ -441,13 +446,15 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               if (item.reason.isNotEmpty) Text(item.reason),
+                              if (item.needsCategory)
+                                const Text('缺少可用分类，请在分类管理中启用或添加分类后重新预览。'),
                               if (!item.blocked)
                                 TextButton(
                                   onPressed: _saving || _reading
                                       ? null
                                       : () => _edit(item),
                                   child: Text(
-                                    '${item.kind == EntryKind.income ? "收入" : "支出"} · ${widget.controller.category(item.categoryId).name} · 调整',
+                                    '${item.kind == EntryKind.income ? "收入" : "支出"} · ${item.needsCategory ? "未设置分类" : widget.controller.category(item.categoryId).name} · 调整',
                                   ),
                                 ),
                             ],

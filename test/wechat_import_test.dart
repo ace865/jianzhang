@@ -185,6 +185,116 @@ void main() {
     );
   });
   test(
+    'Excel calendar regression preserves wall-clock fields across DST',
+    () async {
+      for (final expected in [
+        DateTime.utc(2026, 10, 1, 23, 30),
+        DateTime.utc(2026, 3, 8, 0, 30),
+        DateTime.utc(2026, 11, 1, 23, 59, 59),
+        DateTime.utc(2026, 1, 1, 0, 0, 1),
+      ]) {
+        for (final oldSystem in [false, true]) {
+          final base = oldSystem
+              ? DateTime.utc(1904)
+              : DateTime.utc(1899, 12, 30);
+          final serial = expected.difference(base).inSeconds / 86400;
+          final row = (await parseWechatFile(
+            xlsx([wechatHeaders, bill(date: '$serial')], date1904: oldSystem),
+            'xlsx',
+          )).single;
+          final actual = row.date!;
+          expect(
+            [
+              actual.year,
+              actual.month,
+              actual.day,
+              actual.hour,
+              actual.minute,
+              actual.second,
+            ],
+            [
+              expected.year,
+              expected.month,
+              expected.day,
+              expected.hour,
+              expected.minute,
+              expected.second,
+            ],
+          );
+        }
+      }
+      expect(
+        (await parseWechatFile(
+          xlsx([wechatHeaders, bill(date: '46296.979166666664')]),
+          'xlsx',
+        )).single.date,
+        DateTime(2026, 10, 1, 23, 30),
+      );
+      expect(
+        (await parseWechatFile(
+          xlsx([wechatHeaders, bill(date: '60')]),
+          'xlsx',
+        )).single.disposition,
+        ImportDisposition.invalid,
+      );
+    },
+  );
+  test(
+    'missing categories affect only eligible rows, never the whole preview',
+    () async {
+      await store.db.update(
+        'categories',
+        {'active': 0},
+        where: 'kind=?',
+        whereArgs: ['income'],
+      );
+      final items = await store.previewWechat(
+        parsed([
+          bill(),
+          bill(order: 'failed', direction: '收入', status: '支付失败'),
+          bill(order: 'income', direction: '收入', status: '收款成功'),
+        ]),
+      );
+      expect(items[0].selected, isTrue);
+      expect(items[1].blocked, isTrue);
+      expect(items[1].categoryId, isEmpty);
+      expect(items[2].disposition, ImportDisposition.ready);
+      expect(items[2].needsCategory, isTrue);
+      expect(items[2].selected, isFalse);
+      expect((await store.importWechat(items)).inserted, 1);
+      await store.db.update('categories', {'active': 0});
+      final again = await store.previewWechat(
+        parsed([bill(), bill(order: 'new')]),
+      );
+      expect(again.first.disposition, ImportDisposition.duplicate);
+      expect(again.last.needsCategory, isTrue);
+      expect((await store.importWechat(again)).inserted, 0);
+      await store.db.update('categories', {'active': 1});
+      expect(
+        (await store.previewWechat(
+          parsed([bill(order: 'new', amount: '15.00')]),
+        )).single.selected,
+        isTrue,
+      );
+    },
+  );
+  test('disabled selected categories roll back; unselected categories do not block', () async {
+    final items = await store.previewWechat(
+      parsed([bill(), bill(order: 'income', direction: '收入', status: '收款成功')]),
+    );
+    await store.db.update(
+      'categories',
+      {'active': 0},
+      where: 'kind=?',
+      whereArgs: ['income'],
+    );
+    await expectLater(store.importWechat(items), throwsFormatException);
+    expect((await store.entries(const EntryFilter())), isEmpty);
+    expect(await store.db.query('import_sources'), isEmpty);
+    items[1].selected = false;
+    expect((await store.importWechat(items)).inserted, 1);
+  });
+  test(
     'UTF8 and GB18030 decoding uses native converter without network',
     () async {
       final text = const ListToCsvConverter().convert([wechatHeaders, bill()]);

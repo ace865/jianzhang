@@ -73,7 +73,8 @@ class WechatRow {
 class ImportItem {
   ImportItem(this.row, this.disposition, this.reason, this.categoryId)
     : kind = row.kind,
-      selected = disposition == ImportDisposition.ready;
+      selected =
+          disposition == ImportDisposition.ready && categoryId.isNotEmpty;
   final WechatRow row;
   final ImportDisposition disposition;
   final String reason;
@@ -81,6 +82,7 @@ class ImportItem {
   String categoryId;
   bool selected;
   bool confirmed = false;
+  bool get needsCategory => !blocked && categoryId.isEmpty;
   bool get blocked => [
     ImportDisposition.invalid,
     ImportDisposition.excluded,
@@ -95,13 +97,13 @@ class ImportResult {
   final int inserted, duplicates, unselected;
 }
 
-String suggestImportCategory(
+String? suggestImportCategory(
   WechatRow row,
   EntryKind kind,
   List<Category> categories,
 ) {
   final active = categories.where((c) => c.active && c.kind == kind).toList();
-  if (active.isEmpty) throw const FormatException('没有可用分类，请先添加分类');
+  if (active.isEmpty) return null;
   final text = '${row.cells[1]} ${row.cells[2]} ${row.cells[3]}';
   final rules = kind == EntryKind.income
       ? {'工资|薪资': 'salary', '奖金': 'bonus'}
@@ -268,11 +270,19 @@ DateTime? _date(String value, bool serial, bool date1904) {
       return null;
     }
     final base = date1904
-        ? DateTime(1904)
+        ? DateTime.utc(1904)
         : n < 60
-        ? DateTime(1899, 12, 31)
-        : DateTime(1899, 12, 30);
-    final date = base.add(Duration(seconds: (n * 86400).round()));
+        ? DateTime.utc(1899, 12, 31)
+        : DateTime.utc(1899, 12, 30);
+    final fields = base.add(Duration(seconds: (n * 86400).round()));
+    final date = DateTime(
+      fields.year,
+      fields.month,
+      fields.day,
+      fields.hour,
+      fields.minute,
+      fields.second,
+    );
     return validDay(dayKey(date)) ? date : null;
   }
   final m = RegExp(

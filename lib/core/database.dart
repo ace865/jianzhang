@@ -124,7 +124,14 @@ class LedgerDatabase {
         row,
         state,
         reason,
-        suggestImportCategory(row, kind, cats),
+        [
+              ImportDisposition.invalid,
+              ImportDisposition.excluded,
+              ImportDisposition.duplicate,
+              ImportDisposition.conflict,
+            ].contains(state)
+            ? ''
+            : (suggestImportCategory(row, kind, cats) ?? ''),
       );
     }).toList();
   }
