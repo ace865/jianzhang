@@ -148,9 +148,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                       Text(category.name),
                                       Text(
                                         '${item.count} 笔',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
                                       ),
                                     ],
                                   ),
@@ -167,9 +167,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                   child: Text(
                                     '${(item.cents / total * 100).toStringAsFixed(1)}%',
                                     textAlign: TextAlign.right,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall,
                                   ),
                                 ),
                               ],

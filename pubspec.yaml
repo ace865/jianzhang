@@ -1,9 +1,9 @@
 name: jianzhang
 description: 温暖、简洁的个人离线收支手账。
 publish_to: none
-version: 1.0.0-beta.1+1
+version: 1.1.0-beta.1+2
 environment:
-  sdk: '>=3.8.0 <4.0.0'
+  sdk: '>=3.13.0 <4.0.0'
 dependencies:
   flutter:
     sdk: flutter
@@ -15,6 +15,11 @@ dependencies:
   fl_chart: ^1.0.0
   file_picker: ^13.1.0
   lucide_icons_flutter: ^3.0.0
+  archive: ^4.3.0
+  xml: ^7.1.0
+  csv: ^6.0.0
+  charset_converter: ^2.5.1
+  crypto: ^3.0.7
 dev_dependencies:
   flutter_test:
     sdk: flutter
