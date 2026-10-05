@@ -46,7 +46,7 @@ debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准�
 
 发布前检查安装包实际版本、构建号和签名。脚本输出 `jianzhang-android-产品版本-build构建号.apk`，拒绝覆盖已有产物；维护者构建官方升级包加 `-RequireExistingSignature`，禁止在原签名缺失时生成新密钥。安装包与源码包对应标签指定的同一提交，不覆盖历史附件。
 
-审阅合并后创建新标签，再运行 `./scripts/package-source.ps1 -Tag v产品版本`。新版本只打包标签内文件，并逐个验证 Git 内容摘要；首版标签保留历史补充文档兼容处理。
+代码经审阅合并，且双方另行确认发布范围后，创建新标签，再运行 `./scripts/package-source.ps1 -Tag v产品版本`。新版本只打包标签内文件，并逐个验证 Git 内容摘要；首版标签保留历史补充文档兼容处理。
 
 当前构建脚本可以创建个人测试签名，创建成功不代表得到官方签名。缺少维护者原签名时，测试包不能作为官方覆盖升级包。
 

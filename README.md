@@ -138,7 +138,7 @@ flutter build apk --debug --no-pub
 
 开发与版本规则集中维护在[统一规范](docs/development.md)。Codex 从 [AGENTS.md](AGENTS.md) 读取入口，Claude 从 [CLAUDE.md](CLAUDE.md) 读取入口。
 
-作者 `ace865` 与协作者 `songyu00yo` 共同开发，`songyu00yo` 更侧重 iOS。代码修改从 `main` 创建分支，再提交 Pull Request（合并请求），由另一方审阅；纯文档可以直接提交。流程见[贡献指南](CONTRIBUTING.md)，具体分工见[双方协作约定](docs/development.md#双方协作约定)。
+作者 `ace865` 与协作者 `songyu00yo` 共同开发，`songyu00yo` 更侧重 iOS。代码修改从 `main` 创建分支，再提交 Pull Request（合并请求），由另一方在 GitHub 批准最新提交后合并；纯文档可以直接提交。紧急直提或免审须双方事先同意，合并不授权发布。流程见[贡献指南](CONTRIBUTING.md)，具体分工见[双方协作约定](docs/development.md#双方协作约定)。
 
 版本采用 `主版本.次版本.修订版本`：大更新升主版本，新增功能升次版本，普通优化和修复升修订版本。升级某一位后，右侧数字归零；构建号独立递增。测试版使用 `alpha`（早期验证）、`beta`（功能测试）和 `rc`（候选发布）后缀。阶段条件、跨平台发布和编号示例见统一规范。纯文档修改不更新应用版本。
 
