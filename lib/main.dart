@@ -243,17 +243,20 @@ class _LedgerShellState extends State<LedgerShell>
           ),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.only(bottom: 0),
-          child: FilledButton.icon(
-            key: const ValueKey('add-entry'),
-            onPressed: widget.controller.busy ? null : _editor,
-            icon: const Icon(LucideIcons.plus, size: 18),
-            label: const Text('记一笔'),
-            style: FilledButton.styleFrom(
-              minimumSize: const Size(132, 44),
-              padding: const EdgeInsets.symmetric(horizontal: 25),
-              shape: const StadiumBorder(),
+        floatingActionButton: Visibility(
+          visible: _index == 0,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 0),
+            child: FilledButton.icon(
+              key: const ValueKey('add-entry'),
+              onPressed: widget.controller.busy ? null : _editor,
+              icon: const Icon(LucideIcons.plus, size: 18),
+              label: const Text('记一笔'),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size(132, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 25),
+                shape: const StadiumBorder(),
+              ),
             ),
           ),
         ),
