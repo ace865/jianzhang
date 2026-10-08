@@ -153,6 +153,65 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  for (final dark in [false, true]) {
+    testWidgets(
+      'add entry is overview-only, theme $dark, rapid navigation and return saves',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          if (dark) await tester.runAsync(controller.toggleTheme);
+          await launch(tester, size: const Size(320, 640), scale: 1.3);
+          final button = find.byKey(const ValueKey('add-entry'));
+          expect(button, findsOneWidget);
+          for (final i in [1, 2, 3, 0, 3, 2, 1, 0]) {
+            await tester.tap(find.byKey(ValueKey('nav-$i')));
+            // Inspect mid-transition as well as settled state: hidden means removed,
+            // including from semantics, not simply transparent or disabled.
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(button, i == 0 ? findsOneWidget : findsNothing);
+            if (i != 0) {
+              expect(find.bySemanticsLabel('记一笔'), findsNothing);
+            }
+            expect(tester.takeException(), isNull);
+          }
+          await settle(tester);
+          expect(button.hitTestable(), findsOneWidget);
+          await tester.tap(button);
+          await settle(tester);
+          expect(find.byType(EntryEditor), findsOneWidget);
+          await tester.ensureVisible(find.text('1').last);
+          await tester.tap(find.text('1').last);
+          await tester.tap(find.text('保存账单'));
+          await settle(tester);
+          expect(find.byType(EntryEditor), findsNothing);
+          expect(button.hitTestable(), findsOneWidget);
+          final entries = await tester.runAsync(
+            () => store.entries(const EntryFilter()),
+          );
+          expect(entries!.single.cents, 100);
+          expect(tester.takeException(), isNull);
+          // Capture the persistent layout after the save notification dismisses.
+          await tester.pump(const Duration(seconds: 5));
+          await settle(tester);
+          await screenshot(
+            tester,
+            dark ? 'dark-overview-add-entry' : 'light-overview-add-entry',
+          );
+          await tester.tap(find.byKey(const ValueKey('nav-1')));
+          await settle(tester);
+          await screenshot(
+            tester,
+            dark ? 'dark-ledger-no-add-entry' : 'light-ledger-no-add-entry',
+          );
+          expect(button, findsNothing);
+          await tester.pumpWidget(const SizedBox());
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
+  }
+
   testWidgets(
     'small phone and enlarged text do not overflow across pages and editor',
     (tester) async {
