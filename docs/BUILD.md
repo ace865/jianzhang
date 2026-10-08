@@ -2,7 +2,7 @@
 
 ## 平台范围
 
-项目目标为 iOS 和 Android 跨平台。当前只有 Android 工程，iOS 未实现；下面的命令适用于现有 Android 工程。开发、版本、验收和发布要求见[统一规范](development.md)。
+项目目标为 iOS 和 Android 跨平台。仓库包含两端工程，目前只发布 Android 测试版。iOS 的构建与验收状态见[适配记录](ios-verification.md)。开发、版本、验收和发布要求见[统一规范](development.md)。
 
 ## 环境
 
@@ -22,7 +22,7 @@ flutter build apk --debug --no-pub
 
 debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准备所需 Gradle 启动文件与本地配置。界面测试在 `output/test-artifacts/` 生成样例渲染图，不需要模拟器。GitHub Actions 已验证 Linux 环境的检查和 Android debug 构建。
 
-项目要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。依赖支持 Android/iOS 的共享 API，但当前仅构建 Android。整合版的检查和未验收项见 [本版验证记录](verification-1.2.0-beta.2.md)。
+项目要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。依赖使用 Android 和 iOS 的共享 API，自动检查分别构建两端。整合版的检查和未验收项见 [本版验证记录](verification-1.2.0-beta.2.md)。
 
 ## 个人签名发行包（Windows PowerShell）
 
@@ -50,12 +50,34 @@ debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准�
 
 当前构建脚本可以创建个人测试签名，创建成功不代表得到官方签名。缺少维护者原签名时，测试包不能作为官方覆盖升级包。
 
-## iOS 接入后的要求
+## iOS 构建与运行
 
-iOS 当前未实现，尚无可执行的项目构建步骤。接入时需要 macOS、Xcode、实际项目依赖及正式签名配置，届时补充经验证的工具版本和构建命令。
+使用 macOS、完整 Xcode、Flutter 3.47.6、Ruby 4.0.7 和 Bundler。CocoaPods 及 JSON 库由 `ios/Gemfile.lock` 锁定。最低系统版本为 iOS 15；Flutter 3.47.6 会将旧工程的最低版本升级到 15。使用 `flutter doctor -v` 检查环境，使用 `xcodebuild -version` 和 `ruby --version` 记录工具版本。Apple 自带的旧 Ruby 不满足要求；使用独立 Ruby 工具链，不替换系统 Ruby。
 
-接入后，确认文件选择与导出、数据库持久化、安全区域、键盘和权限在 iOS 上正常。共享代码与依赖变化检查两端。alpha 和 beta 可以保留已列明的真机验收缺项；rc 和正式版完成必要真机验收，具体要求见[分阶段验收](development.md#分阶段验收)。
+项目通过 CocoaPods 集成原生插件，已在 `pubspec.yaml` 中关闭 Swift Package Manager。依赖版本以 `pubspec.lock` 和 `ios/Podfile.lock` 为准。Ruby 工具使用 `ios/Gemfile.lock`，避免 JSON 格式化差异改变 Pods 校验值。先下载 Flutter iOS 构建组件，再安装 Pods：
 
-iOS 的 `CFBundleShortVersionString` 使用三段数字，`CFBundleVersion` 使用构建号。测试版本的后缀保留在产品版本与发布记录中，构建时转换为平台允许的字段，不修改版本来源。
+```sh
+flutter pub get --enforce-lockfile
+flutter precache --ios
+cd ios
+bundle install
+bundle exec pod install --deployment
+cd ..
+BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter build ios --release --no-codesign --no-pub --build-name=1.2.0 --build-number=4
+```
 
-正式签名、测试渠道与安装包分发需要实际账号和权限。未经验证的构建步骤、签名条件或分发结果应明确标为待完成。
+命令中的版本对应当前 `1.2.0-beta.2+4`。后续构建从 `pubspec.yaml` 提取三段数字及构建号。iOS 的 `CFBundleShortVersionString` 不包含 beta 后缀；完整测试版本保留在产品版本和发布记录中。构建不会改写产品版本来源。
+
+产物为 `build/ios/iphoneos/Runner.app`。它没有签名，不能直接安装到 iPhone，也不是可分发的 IPA。需要签名时，通过 `ios/Runner.xcworkspace` 打开工程，在本机选择实际开发团队，确认应用标识 `cn.local.jianzhang` 可用。不要提交团队、证书、设备配置或机器路径。
+
+使用模拟器时，在 Xcode 中安装 iOS 模拟器运行时，创建设备，再运行 `flutter devices` 和 `BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter run -d 设备ID --build-name=1.2.0 --build-number=4`。模拟器测试不能替代真机验收。调试真机需要签名和设备授权，本次没有完成这些步骤。
+
+## iOS 验收与发布边界
+
+文件选择和导出使用 iOS 系统文件选择器。Keychain 权限只包含当前应用的访问组，Debug、Profile 和 Release 使用同一权限配置。没有开启跨应用共享、iCloud 同步或允许任意 HTTP 请求的例外。
+
+真机验收需覆盖“我的 iPhone”和 iCloud Drive 中的文件、微信 CSV／XLSX、GB18030 编码、备份恢复、数据库持久化、安全区域、键盘、字体放大和双主题。AI 还需验证密钥保存与删除、重启后历史解密、断网、停止生成、切换后台和杀进程。
+
+Keychain 数据在卸载后的保留行为由系统决定，不能承诺卸载会删除 API 密钥。删除密钥应使用应用内的操作。AI 历史不包含在账本备份中，账本备份只用于迁移共享账本数据，不提供自动同步。
+
+alpha 和 beta 可以保留明确列出的验收缺项；rc 和正式版需完成必要真机验收，要求见[分阶段验收](development.md#分阶段验收)。首次正式支持 iOS 时，双方确认版本及发布范围，再按大更新编号。TestFlight 和 App Store 分发需要实际账号、签名和单独授权。

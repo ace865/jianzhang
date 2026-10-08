@@ -1,0 +1,81 @@
+{
+  "format": "jianzhang",
+  "version": 2,
+  "createdAt": "2026-10-08T00:00:00.000Z",
+  "categories": [
+    {
+      "id": "food",
+      "name": "餐饮",
+      "icon": "utensils",
+      "kind": "expense",
+      "active": 1,
+      "sort_order": 0
+    },
+    {
+      "id": "salary",
+      "name": "工资",
+      "icon": "briefcase",
+      "kind": "income",
+      "active": 1,
+      "sort_order": 0
+    }
+  ],
+  "entries": [
+    {
+      "id": "synthetic-import",
+      "kind": "expense",
+      "cents": 1230,
+      "category_id": "food",
+      "day": "2026-10-02",
+      "payment": "微信",
+      "note": "虚构餐厅 · 虚构午餐 · 测试导入",
+      "created_at": 1790899200000
+    },
+    {
+      "id": "synthetic-income",
+      "kind": "income",
+      "cents": 999999,
+      "category_id": "salary",
+      "day": "2026-10-01",
+      "payment": "银行卡",
+      "note": "虚构工资",
+      "created_at": 1790812800000
+    }
+  ],
+  "budgets": [
+    {
+      "month": "2026-10",
+      "category_id": "",
+      "cents": 10000
+    },
+    {
+      "month": "2026-10",
+      "category_id": "food",
+      "cents": 5000
+    }
+  ],
+  "daily_notes": [
+    {
+      "day": "2026-10-02",
+      "body": "仅用于跨平台测试的虚构小记。"
+    }
+  ],
+  "settings": [
+    {
+      "key": "theme",
+      "value": "dark"
+    },
+    {
+      "key": "reduced_motion",
+      "value": "true"
+    }
+  ],
+  "import_sources": [
+    {
+      "entry_id": "synthetic-import",
+      "source": "wechat",
+      "source_key": "1d02829db6b92308a215e94ac45e502ff4bebe28654565501ef734346afcc989",
+      "fingerprint": "f07ba005c74fc658be7403875edafc192681846da2dfaeb38a08b1421cab31a7"
+    }
+  ]
+}

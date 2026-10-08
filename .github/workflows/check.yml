@@ -34,3 +34,40 @@ jobs:
             TZ="$zone" flutter test --no-pub test/wechat_import_test.dart --plain-name 'Excel calendar regression'
           done
       - run: flutter build apk --debug --no-pub
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: '4.0.7'
+          bundler-cache: true
+          working-directory: ios
+      - name: Record Apple toolchain
+        working-directory: ios
+        run: |
+          xcodebuild -version
+          bundle exec pod --version
+          ruby --version
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter precache --ios
+      - name: Install locked CocoaPods dependencies
+        working-directory: ios
+        run: bundle exec pod install --deployment
+      - run: flutter test --no-pub
+      - name: Build unsigned iOS release
+        run: |
+          app_version=$(sed -n 's/^version: //p' pubspec.yaml)
+          ios_version="${app_version%%+*}"
+          ios_version="${ios_version%%-*}"
+          app_build="${app_version##*+}"
+          [[ "$ios_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$app_build" =~ ^[1-9][0-9]*$ ]]
+          BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter build ios --release --no-codesign --no-pub --build-name="$ios_version" --build-number="$app_build"

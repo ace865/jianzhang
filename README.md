@@ -2,7 +2,7 @@
 
 简账是一款个人离线收支手账。你可以手动记录收入和支出，查看统计、设置预算，并导出本地备份。应用无需注册，账本保存在手机上。
 
-项目使用 Flutter 和 Dart 开发，目标是支持 iOS 和 Android。当前仅提供 Android 测试版，iOS 尚未实现，仓库没有 iOS 工程。桌面和网页版本不在当前目标内。
+项目使用 Flutter 和 Dart 开发，目标是支持 iOS 和 Android。当前仅提供 Android 测试版。iOS 工程已接入，最低系统版本为 iOS 15，构建检查见[适配记录](docs/ios-verification.md)。iPhone 真机及签名分发尚未完成。桌面和网页版本不在当前目标内。
 
 [![App checks](https://github.com/ace865/jianzhang/actions/workflows/check.yml/badge.svg)](https://github.com/ace865/jianzhang/actions/workflows/check.yml)
 ![Android](https://img.shields.io/badge/Android-7.0%2B-47794F)
@@ -110,6 +110,7 @@ GitHub Actions 会检查代码格式、运行静态检查和测试，并构建 A
 | `lib/ui/` | 总览、账单、分析、设置、记账编辑器和图表 |
 | `test/` | 数据库与界面测试 |
 | `android/` | Android 工程与签名配置 |
+| `ios/` | iOS 工程、插件集成和 Keychain 权限配置 |
 | `scripts/` | Windows 发行包构建和源码打包脚本 |
 
 金额使用整数分存储。修改数据库结构时，需要提供保留旧数据的迁移逻辑和回归测试。

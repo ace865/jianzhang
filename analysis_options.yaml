@@ -4,3 +4,4 @@ analyzer:
     - build/**
     - android/**
     - output/**
+    - ios/**
