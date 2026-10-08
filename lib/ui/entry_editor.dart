@@ -511,10 +511,18 @@ class _EntryEditorState extends State<EntryEditor> {
           Icon(icon, size: 18),
           const SizedBox(width: 12),
           Text(label),
-          const Spacer(),
-          Text(
-            value,
-            style: TextStyle(fontSize: 13, color: InkColors.of(context).muted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 13,
+                color: InkColors.of(context).muted,
+              ),
+            ),
           ),
           const SizedBox(width: 5),
           const Icon(LucideIcons.chevronRight, size: 16),

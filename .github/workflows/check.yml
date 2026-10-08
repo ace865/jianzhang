@@ -34,3 +34,33 @@ jobs:
             TZ="$zone" flutter test --no-pub test/wechat_import_test.dart --plain-name 'Excel calendar regression'
           done
       - run: flutter build apk --debug --no-pub
+
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.6'
+          channel: stable
+          cache: true
+      - name: Record Apple toolchain
+        run: |
+          xcodebuild -version
+          pod --version
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter precache --ios
+      - name: Install locked CocoaPods dependencies
+        working-directory: ios
+        run: pod install --deployment
+      - run: flutter test --no-pub
+      - name: Build unsigned iOS release
+        run: |
+          app_version=$(sed -n 's/^version: //p' pubspec.yaml)
+          ios_version="${app_version%%+*}"
+          ios_version="${ios_version%%-*}"
+          app_build="${app_version##*+}"
+          [[ "$ios_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$app_build" =~ ^[1-9][0-9]*$ ]]
+          flutter build ios --release --no-codesign --no-pub --build-name="$ios_version" --build-number="$app_build"

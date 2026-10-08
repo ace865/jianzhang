@@ -4,7 +4,7 @@
 
 先阅读 [README](README.md)、[统一开发与版本规范](docs/development.md) 和 [构建指南](docs/BUILD.md)。公共规则集中在统一规范中，Codex 和 Claude 分别从 [AGENTS.md](AGENTS.md) 和 [CLAUDE.md](CLAUDE.md) 读取入口。
 
-项目目标为 iOS 和 Android 跨平台。当前仅有 Android 工程，iOS 未实现。新功能优先使用共享 Dart 代码，选择依赖时检查两端支持情况。
+项目目标为 iOS 和 Android 跨平台。当前包含 Android 和 iOS 工程。iOS 最低支持 iOS 15，真机及分发仍待验证。新功能优先使用共享 Dart 代码，选择依赖时检查两端支持情况。
 
 ## 提交修改
 
@@ -16,7 +16,7 @@
 
 ## 日常协作步骤
 
-下面以新增 iOS 工程的分支 `feat/ios-setup` 为例。分支名按实际任务替换，示例不代表 iOS 已实现。代码操作需要 Git 和仓库访问权限，构建还需要[开发环境](docs/BUILD.md)。
+下面以新增 iOS 工程的分支 `feat/ios-setup` 为例。分支名按实际任务替换，示例不代表 iOS 已通过真机验收或正式发布。代码操作需要 Git 和仓库访问权限，构建还需要[开发环境](docs/BUILD.md)。
 
 ### 同步并开始任务
 
