@@ -47,6 +47,8 @@ void main() {
           await settle(tester);
           expect(tester.takeException(), isNull);
         }
+        await tester.tap(find.byKey(const ValueKey('nav-0')));
+        await settle(tester);
         await tester.tap(find.byKey(const ValueKey('add-entry')));
         await settle(tester);
         tester.view.viewInsets = const FakeViewPadding(bottom: 240);
