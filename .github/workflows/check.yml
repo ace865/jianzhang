@@ -55,7 +55,7 @@ jobs:
       - name: Install locked CocoaPods dependencies
         working-directory: ios
         run: |
-          pod ipc spec .symlinks/plugins/charset_converter/ios/charset_converter.podspec
+          pod ipc spec "$PUB_CACHE/hosted/pub.dev/charset_converter-2.5.1/ios/charset_converter.podspec"
           pod install --deployment
       - run: flutter test --no-pub
       - name: Build unsigned iOS release
