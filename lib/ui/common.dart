@@ -226,11 +226,9 @@ class WindowPicker extends StatelessWidget {
     super.key,
     required this.window,
     required this.onChanged,
-    this.allowDay = true,
   });
   final PeriodWindow window;
   final ValueChanged<PeriodWindow> onChanged;
-  final bool allowDay;
   @override
   Widget build(BuildContext context) {
     final datePicker = Row(
@@ -279,11 +277,9 @@ class WindowPicker extends StatelessWidget {
       ],
     );
     final periodPicker = ChoiceStrip(
-      labels: allowDay ? const ['日', '月', '年'] : const ['月', '年'],
-      index: allowDay ? window.period.index : window.period.index - 1,
-      onChanged: (i) => onChanged(
-        PeriodWindow(Period.values[allowDay ? i : i + 1], window.date),
-      ),
+      labels: const ['日', '月', '年'],
+      index: window.period.index,
+      onChanged: (i) => onChanged(PeriodWindow(Period.values[i], window.date)),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -293,7 +289,7 @@ class WindowPicker extends StatelessWidget {
             children: [
               Expanded(child: datePicker),
               const SizedBox(width: 8),
-              SizedBox(width: allowDay ? 132 : 100, child: periodPicker),
+              SizedBox(width: 132, child: periodPicker),
             ],
           );
         }

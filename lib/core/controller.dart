@@ -78,19 +78,25 @@ class LedgerController extends ChangeNotifier {
     await refresh();
   }
 
-  Future<ImportResult> importWechat(List<ImportItem> items) async {
-    if (_busy) throw const FormatException('正在执行其他数据操作');
+  Future<T> _withBusy<T>(Future<T> Function() operation) async {
     _busy = true;
     notifyListeners();
     try {
-      final result = await store.importWechat(items);
-      revision++;
-      notifyListeners();
-      return result;
+      return await operation();
     } finally {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  Future<ImportResult> importWechat(List<ImportItem> items) async {
+    if (_busy) throw const FormatException('正在执行其他数据操作');
+    return _withBusy(() async {
+      final result = await store.importWechat(items);
+      revision++;
+      notifyListeners();
+      return result;
+    });
   }
 
   Future<void> saveCategory(Category value) async {
@@ -116,9 +122,7 @@ class LedgerController extends ChangeNotifier {
 
   Future<bool> backup() async {
     if (_busy) return false;
-    _busy = true;
-    notifyListeners();
-    try {
+    return _withBusy(() async {
       final data = await store.exportBackup();
       final encoded = await compute(_encode, data);
       final path = await FilePicker.saveFile(
@@ -130,17 +134,12 @@ class LedgerController extends ChangeNotifier {
         mimeType: 'application/json',
       );
       return path != null;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
+    });
   }
 
   Future<Map<String, Object?>?> pickBackup() async {
     if (_busy) return null;
-    _busy = true;
-    notifyListeners();
-    try {
+    return _withBusy(() async {
       final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -158,31 +157,21 @@ class LedgerController extends ChangeNotifier {
         bytes.add(chunk);
       }
       return await compute(_decode, bytes.takeBytes());
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
+    });
   }
 
   Future<void> restore(Map<String, Object?> data) async {
     if (_busy) return;
-    _busy = true;
-    notifyListeners();
-    try {
+    return _withBusy(() async {
       await store.restore(data);
       await initialize();
       revision++;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
+    });
   }
 
   Future<bool> exportCsv(EntryFilter filter) async {
     if (_busy) return false;
-    _busy = true;
-    notifyListeners();
-    try {
+    return _withBusy(() async {
       final entries = await store.entries(filter, limit: null);
       final rows = entries
           .map(
@@ -202,10 +191,7 @@ class LedgerController extends ChangeNotifier {
             mimeType: 'text/csv',
           ) !=
           null;
-    } finally {
-      _busy = false;
-      notifyListeners();
-    }
+    });
   }
 }
 

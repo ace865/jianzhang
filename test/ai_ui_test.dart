@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:jianzhang/core/ai_service.dart';
@@ -20,6 +19,8 @@ import 'package:jianzhang/ui/theme.dart';
 import 'ai_test.dart' show MemorySecrets, FakeClient, config, fakeKey, entry;
 import 'app_test.dart' show settle;
 
+import 'support/test_fonts.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   late LedgerDatabase db;
@@ -30,20 +31,7 @@ void main() {
   final capture = GlobalKey();
   setUpAll(() async {
     sqfliteFfiInit();
-    await (FontLoader(
-      'LedgerSerif',
-    )..addFont(rootBundle.load('assets/fonts/NotoSerifSC.ttf'))).load();
-    final sans = File('C:/Windows/Fonts/msyh.ttc');
-    await (FontLoader('Roboto')..addFont(
-          await sans.exists()
-              ? Future.value(ByteData.sublistView(await sans.readAsBytes()))
-              : rootBundle.load('assets/fonts/NotoSerifSC.ttf'),
-        ))
-        .load();
-    await (FontLoader('packages/lucide_icons_flutter/Lucide')..addFont(
-          rootBundle.load('packages/lucide_icons_flutter/assets/lucide.ttf'),
-        ))
-        .load();
+    await loadTestFonts();
   });
   setUp(() async {
     db = await LedgerDatabase.open(

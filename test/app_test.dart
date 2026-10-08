@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:jianzhang/core/controller.dart';
@@ -13,6 +12,8 @@ import 'package:jianzhang/main.dart';
 import 'package:jianzhang/ui/entry_editor.dart';
 import 'package:jianzhang/core/wechat_import.dart';
 import 'package:jianzhang/ui/wechat_import.dart';
+
+import 'support/test_fonts.dart';
 
 Future<void> settle(WidgetTester tester) async {
   // SQLite runs on a real isolate, not Flutter's virtual test clock.
@@ -32,23 +33,7 @@ void main() {
   final capture = GlobalKey();
   setUpAll(() async {
     sqfliteFfiInit();
-    final serif = FontLoader('LedgerSerif')
-      ..addFont(rootBundle.load('assets/fonts/NotoSerifSC.ttf'));
-    await serif.load();
-    // Only test rendering uses this local font; release uses Android's own sans.
-    final localSans = File('C:/Windows/Fonts/msyh.ttc');
-    if (await localSans.exists()) {
-      final bytes = ByteData.sublistView(await localSans.readAsBytes());
-      await (FontLoader('Roboto')..addFont(Future.value(bytes))).load();
-    } else {
-      await (FontLoader(
-        'Roboto',
-      )..addFont(rootBundle.load('assets/fonts/NotoSerifSC.ttf'))).load();
-    }
-    await (FontLoader('packages/lucide_icons_flutter/Lucide')..addFont(
-          rootBundle.load('packages/lucide_icons_flutter/assets/lucide.ttf'),
-        ))
-        .load();
+    await loadTestFonts();
   });
   setUp(() async {
     store = await LedgerDatabase.open(
