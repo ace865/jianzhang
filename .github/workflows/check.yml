@@ -45,18 +45,22 @@ jobs:
           flutter-version: '3.47.6'
           channel: stable
           cache: true
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8
+        with:
+          ruby-version: '4.0.7'
+          bundler-cache: true
+          working-directory: ios
       - name: Record Apple toolchain
+        working-directory: ios
         run: |
           xcodebuild -version
-          pod --version
+          bundle exec pod --version
           ruby --version
       - run: flutter pub get --enforce-lockfile
       - run: flutter precache --ios
       - name: Install locked CocoaPods dependencies
         working-directory: ios
-        run: |
-          pod ipc spec "$PUB_CACHE/hosted/pub.dev/charset_converter-2.5.1/ios/charset_converter.podspec"
-          pod install --deployment
+        run: bundle exec pod install --deployment
       - run: flutter test --no-pub
       - name: Build unsigned iOS release
         run: |
@@ -66,4 +70,4 @@ jobs:
           app_build="${app_version##*+}"
           [[ "$ios_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           [[ "$app_build" =~ ^[1-9][0-9]*$ ]]
-          flutter build ios --release --no-codesign --no-pub --build-name="$ios_version" --build-number="$app_build"
+          BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter build ios --release --no-codesign --no-pub --build-name="$ios_version" --build-number="$app_build"

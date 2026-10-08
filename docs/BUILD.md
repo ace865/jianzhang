@@ -52,24 +52,25 @@ debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准�
 
 ## iOS 构建与运行
 
-使用 macOS、完整 Xcode、Flutter 3.47.6 和 CocoaPods。最低系统版本为 iOS 15；Flutter 3.47.6 会将旧工程的最低版本升级到 15。使用 `flutter doctor -v` 检查环境，使用 `xcodebuild -version` 和 `pod --version` 记录工具版本。
+使用 macOS、完整 Xcode、Flutter 3.47.6、Ruby 4.0.7 和 Bundler。CocoaPods 及 JSON 库由 `ios/Gemfile.lock` 锁定。最低系统版本为 iOS 15；Flutter 3.47.6 会将旧工程的最低版本升级到 15。使用 `flutter doctor -v` 检查环境，使用 `xcodebuild -version` 和 `ruby --version` 记录工具版本。Apple 自带的旧 Ruby 不满足要求；使用独立 Ruby 工具链，不替换系统 Ruby。
 
-项目通过 CocoaPods 集成原生插件，已在 `pubspec.yaml` 中关闭 Swift Package Manager。依赖版本以 `pubspec.lock` 和 `ios/Podfile.lock` 为准。先下载 Flutter iOS 构建组件，再安装 Pods：
+项目通过 CocoaPods 集成原生插件，已在 `pubspec.yaml` 中关闭 Swift Package Manager。依赖版本以 `pubspec.lock` 和 `ios/Podfile.lock` 为准。Ruby 工具使用 `ios/Gemfile.lock`，避免 JSON 格式化差异改变 Pods 校验值。先下载 Flutter iOS 构建组件，再安装 Pods：
 
 ```sh
 flutter pub get --enforce-lockfile
 flutter precache --ios
 cd ios
-pod install --deployment
+bundle install
+bundle exec pod install --deployment
 cd ..
-flutter build ios --release --no-codesign --no-pub --build-name=1.2.0 --build-number=4
+BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter build ios --release --no-codesign --no-pub --build-name=1.2.0 --build-number=4
 ```
 
 命令中的版本对应当前 `1.2.0-beta.2+4`。后续构建从 `pubspec.yaml` 提取三段数字及构建号。iOS 的 `CFBundleShortVersionString` 不包含 beta 后缀；完整测试版本保留在产品版本和发布记录中。构建不会改写产品版本来源。
 
 产物为 `build/ios/iphoneos/Runner.app`。它没有签名，不能直接安装到 iPhone，也不是可分发的 IPA。需要签名时，通过 `ios/Runner.xcworkspace` 打开工程，在本机选择实际开发团队，确认应用标识 `cn.local.jianzhang` 可用。不要提交团队、证书、设备配置或机器路径。
 
-使用模拟器时，在 Xcode 中安装 iOS 模拟器运行时，创建设备，再运行 `flutter devices` 和 `flutter run -d 设备ID --build-name=1.2.0 --build-number=4`。模拟器测试不能替代真机验收。调试真机需要签名和设备授权，本次没有完成这些步骤。
+使用模拟器时，在 Xcode 中安装 iOS 模拟器运行时，创建设备，再运行 `flutter devices` 和 `BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter run -d 设备ID --build-name=1.2.0 --build-number=4`。模拟器测试不能替代真机验收。调试真机需要签名和设备授权，本次没有完成这些步骤。
 
 ## iOS 验收与发布边界
 
