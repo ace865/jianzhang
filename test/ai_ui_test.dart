@@ -169,6 +169,33 @@ void main() {
     expect(client.calls, 0);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'provider selection fills model and parameter; custom keeps free input',
+    (tester) async {
+      await tester.runAsync(
+        () => service.configure(
+          AiConfig(endpoint: aiProviders[0].endpoint, model: 'deepseek-flash'),
+          fakeKey,
+        ),
+      );
+      final catalog = FakeCatalogClient();
+      await launch(tester, settings: true, catalogClient: catalog);
+      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      await settle(tester);
+      await tap(tester, 'OpenAI');
+      expect(find.widgetWithText(TextField, 'gpt-4.1-mini'), findsOneWidget);
+      expect(find.text('max_completion_tokens'), findsOneWidget);
+      expect(service.config!.endpoint, aiProviders[0].endpoint);
+      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      await settle(tester);
+      await tap(tester, '自定义');
+      expect(find.widgetWithText(TextField, '完整 HTTPS 聊天端点'), findsOneWidget);
+      expect(find.text('同源 HTTPS 模型列表地址（可选）'), findsOneWidget);
+      expect(catalog.calls, 0);
+      expect(client.calls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'provider presets $dark, model search and official link fallback offline',

@@ -81,7 +81,10 @@ class DioAiModelCatalogClient implements AiModelCatalogClient {
     Uri address,
     CancelToken cancel,
   ) async {
-    final qwen = providerForEndpoint(config.endpoint)?.id == 'qwen';
+    final qwen =
+        providerForEndpoint(config.endpoint)?.id == 'qwen' &&
+        isQwenWorkspace(Uri.parse(config.endpoint)) &&
+        address.path == '/api/v1/models';
     final models = <String, AiCatalogModel>{};
     var bytes = 0, seen = 0;
     int? total;

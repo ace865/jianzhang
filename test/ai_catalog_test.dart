@@ -109,6 +109,13 @@ void main() {
       );
       expect(() => catalogUri(config), returnsNormally);
       expect(
+        catalogUri(
+          config,
+          customUrl: 'https://api.deepseek.com/account/models',
+        ).path,
+        '/account/models',
+      );
+      expect(
         () =>
             catalogUri(AiConfig(endpoint: aiProviders[3].endpoint, model: 'x')),
         throwsFormatException,
@@ -337,6 +344,30 @@ void main() {
     await expectLater(pending, throwsFormatException);
   });
 
+  test(
+    'custom same-origin query uses explicit address and unknown capabilities',
+    () async {
+      final custom = AiConfig(
+        endpoint: 'https://custom.example/text/chat',
+        model: 'anything',
+      );
+      final address = catalogUri(
+        custom,
+        customUrl: 'https://custom.example/catalog',
+      );
+      final result = await client.fetch(
+        custom,
+        fakeKey,
+        address,
+        CancelToken(),
+      );
+      expect(adapter.requests.single.uri.toString(), address.toString());
+      expect(result.models.single.brand, isNull);
+      expect(result.models.single.textChat, isNull);
+      expect(() => catalogUri(custom), throwsFormatException);
+    },
+  );
+
   group('independent encrypted cache', () {
     late Directory directory;
     late MemorySecrets secrets;
@@ -429,6 +460,28 @@ void main() {
       await storage.clear();
       expect(await storage.keyFor(config), fakeKey);
       expect(await storage.catalogConsented(catalogUri(config)), false);
+    });
+    test('obsolete request guard cannot replace a successful cache', () async {
+      await storage.saveCatalog(result, fakeKey, storage.catalogRevision);
+      final replacement = AiCatalogResult(
+        endpoint: config.endpoint,
+        source: result.source,
+        refreshedAt: DateTime(2030),
+        models: const [AiCatalogModel('obsolete')],
+      );
+      expect(
+        await storage.saveCatalog(
+          replacement,
+          fakeKey,
+          storage.catalogRevision,
+          isCurrent: () => false,
+        ),
+        false,
+      );
+      expect(
+        (await storage.catalog(config.endpoint))!.models.single.id,
+        'synthetic-private-model',
+      );
     });
     test(
       'corrupt cache never affects history or loses original file',

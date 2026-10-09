@@ -117,6 +117,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         _savedCatalogUrl = await widget.service.storage.catalogAddress(
           config.endpoint,
         );
+        if (_savedCatalogUrl?.isNotEmpty == true) _provider = null;
         _catalogUrl.text = _savedCatalogUrl ?? '';
         await _readCatalog();
       }

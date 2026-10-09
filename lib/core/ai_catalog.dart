@@ -238,6 +238,9 @@ Uri validateCatalogUri(String endpoint, String address) {
 
 Uri catalogUri(AiConfig config, {String? customUrl}) {
   config.validate();
+  if (customUrl != null && customUrl.trim().isNotEmpty) {
+    return validateCatalogUri(config.endpoint, customUrl.trim());
+  }
   final provider = providerForEndpoint(config.endpoint);
   if (provider?.id == 'zhipu') {
     throw const FormatException('智谱暂不支持在线获取模型列表，请使用内置列表或查看官方模型说明。');
