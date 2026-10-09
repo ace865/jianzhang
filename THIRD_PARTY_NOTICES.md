@@ -12,6 +12,9 @@
 | path | 路径处理 | [BSD 3-Clause](docs/licenses/path.txt) |
 | path_provider | 平台路径 | [BSD 3-Clause](docs/licenses/path_provider.txt) |
 | dio | 可取消 HTTPS 请求 | [MIT](docs/licenses/dio.txt) |
+| flutter_svg | 本地单色 SVG 渲染 | [MIT](docs/licenses/flutter_svg.txt) |
+| url_launcher | 系统浏览器打开官方链接 | [BSD 3-Clause](docs/licenses/url_launcher.txt) |
+| Lobe Icons | 服务商及模型品牌图标 | [MIT](assets/ai-icons/LICENSE.txt)，[固定来源](https://github.com/lobehub/lobe-icons/tree/c385b2b8d1f9e19aa86e628d4e23c91ee1111a47/packages/static-svg/icons) |
 | flutter_secure_storage | 系统安全存储 | [BSD 3-Clause](docs/licenses/flutter_secure_storage.txt) |
 | cryptography | AI 记录 AES-GCM 加密 | [Apache 2.0](docs/licenses/cryptography.txt) |
 | crypto | 统计快照 SHA-256 | [BSD 3-Clause](docs/licenses/crypto.txt) |
