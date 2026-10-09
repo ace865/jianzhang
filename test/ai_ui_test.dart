@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
+import 'package:jianzhang/core/ai_catalog.dart';
+import 'package:jianzhang/core/ai_catalog_client.dart';
+import 'package:jianzhang/ui/ai_catalog_widgets.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:jianzhang/core/ai_service.dart';
 import 'package:jianzhang/core/ai_models.dart';
@@ -20,6 +25,29 @@ import 'ai_test.dart' show MemorySecrets, FakeClient, config, fakeKey, entry;
 import 'app_test.dart' show settle;
 
 import 'support/test_fonts.dart';
+
+class FakeCatalogClient implements AiModelCatalogClient {
+  int calls = 0;
+  Completer<void>? hold;
+  bool fail = false;
+  @override
+  Future<AiCatalogResult> fetch(
+    AiConfig config,
+    String key,
+    Uri address,
+    CancelToken cancel,
+  ) async {
+    calls++;
+    if (hold != null) await hold!.future;
+    if (fail) throw const FormatException('样例查询失败，原列表已保留。');
+    return AiCatalogResult(
+      endpoint: config.endpoint,
+      source: address.toString(),
+      refreshedAt: DateTime(2026, 10, 9),
+      models: const [AiCatalogModel('synthetic-new-model')],
+    );
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +91,8 @@ void main() {
     Size size = const Size(400, 880),
     double scale = 1,
     bool settings = false,
+    AiModelCatalogClient? catalogClient,
+    AiLinkOpener? linkOpener,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -77,7 +107,11 @@ void main() {
           debugShowCheckedModeBanner: false,
           theme: ledgerTheme(dark),
           home: settings
-              ? AiSettingsScreen(service: service)
+              ? AiSettingsScreen(
+                  service: service,
+                  catalogClient: catalogClient,
+                  linkOpener: linkOpener ?? openAiOfficialLink,
+                )
               : AiAnalysisScreen(
                   controller: ledger,
                   window: PeriodWindow(Period.month, DateTime.now()),
@@ -133,6 +167,128 @@ void main() {
     await tap(tester, '生成分析');
     expect(find.text('完整 HTTPS 聊天端点'), findsOneWidget);
     expect(client.calls, 0);
+    expect(tester.takeException(), isNull);
+  });
+  for (final dark in [false, true]) {
+    testWidgets(
+      'provider presets $dark, model search and official link fallback offline',
+      (tester) async {
+        await tester.runAsync(
+          () => service.configure(
+            AiConfig(
+              endpoint: aiProviders[0].endpoint,
+              model: 'deepseek-flash',
+            ),
+            fakeKey,
+          ),
+        );
+        final catalog = FakeCatalogClient();
+        await launch(
+          tester,
+          settings: true,
+          dark: dark,
+          catalogClient: catalog,
+          linkOpener: (_) async => false,
+        );
+        await screenshot(
+          tester,
+          dark ? 'dark-ai-providers.png' : 'light-ai-providers.png',
+        );
+        await tap(tester, '选择模型');
+        await tester.enterText(
+          find.widgetWithText(TextField, '搜索模型名称或 ID'),
+          'v4',
+        );
+        await settle(tester);
+        expect(find.text('DeepSeek V4 Pro'), findsOneWidget);
+        await tap(tester, 'DeepSeek V4 Pro');
+        expect(service.config!.model, 'deepseek-flash'); // Draft only.
+        await tap(tester, '刷新模型列表');
+        expect(find.text('表单有未保存修改，请先保存配置后刷新。'), findsOneWidget);
+        expect(catalog.calls, 0);
+        expect(client.calls, 0);
+        await tap(tester, '获取 API 密钥');
+        expect(find.text('无法打开系统浏览器'), findsOneWidget);
+        expect(
+          find.textContaining('https://platform.deepseek.com/api_keys'),
+          findsOneWidget,
+        );
+        await tap(tester, '复制链接');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  testWidgets(
+    'manual refresh preserves current model, failure cache and blocks stale response',
+    (tester) async {
+      final selected = AiConfig(
+        endpoint: aiProviders[0].endpoint,
+        model: 'deepseek-flash',
+      );
+      await tester.runAsync(() => service.configure(selected, fakeKey));
+      final catalog = FakeCatalogClient();
+      await launch(tester, settings: true, catalogClient: catalog);
+      await tap(tester, '刷新模型列表');
+      expect(find.text('查询模型列表？'), findsOneWidget);
+      expect(catalog.calls, 0);
+      await tap(tester, '确认查询');
+      expect(catalog.calls, 1);
+      expect(service.config!.model, selected.model);
+      expect(find.text('当前列表未包含此模型，请核对权限或选择其他模型'), findsOneWidget);
+      final first = await tester.runAsync(
+        () => service.storage.catalog(selected.endpoint),
+      );
+      catalog.fail = true;
+      await tap(tester, '刷新模型列表');
+      expect(catalog.calls, 2);
+      expect(find.text('样例查询失败，原列表已保留。'), findsOneWidget);
+      expect(
+        (await tester.runAsync(
+          () => service.storage.catalog(selected.endpoint),
+        ))!.refreshedAt,
+        first!.refreshedAt,
+      );
+      catalog.fail = false;
+      catalog.hold = Completer<void>();
+      await tap(tester, '刷新模型列表');
+      expect(catalog.calls, 3);
+      await tester.ensureVisible(
+        find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
+        'https://custom.invalid/chat',
+      );
+      catalog.hold!.complete();
+      await settle(tester);
+      expect(find.textContaining('上次成功刷新'), findsNothing);
+      expect(client.calls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('model picker long names, keyboard and large font at 320 width', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => service.configure(
+        AiConfig(endpoint: aiProviders[0].endpoint, model: 'deepseek-flash'),
+        fakeKey,
+      ),
+    );
+    await launch(
+      tester,
+      settings: true,
+      size: const Size(320, 640),
+      scale: 1.8,
+      dark: true,
+    );
+    await tap(tester, '选择模型');
+    await screenshot(tester, 'small-ai-model-picker.png');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.enterText(find.widgetWithText(TextField, '搜索模型名称或 ID'), '不存在');
+    await settle(tester);
+    expect(find.text('没有匹配模型，仍可在设置页手动填写。'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   for (final dark in [false, true]) {

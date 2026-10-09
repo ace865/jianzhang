@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:crypto/crypto.dart' as hashes;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'ai_models.dart';
+import 'ai_catalog.dart';
 
 abstract interface class AiSecrets {
   Future<String?> read(String key);
@@ -74,15 +76,138 @@ class AiStorage {
       throw const FormatException('请填写有效密钥。');
     }
     // Bind key to exact endpoint. Never silently reuse a key for another host/path.
-    await secrets.write(
-      'api-key',
-      jsonEncode({'endpoint': config.endpoint, 'key': key.trim()}),
-    );
+    final old = await secrets.read('api-key');
+    final bundle = jsonEncode({'endpoint': config.endpoint, 'key': key.trim()});
+    if (old != bundle) await _clearCatalogs();
+    await secrets.write('api-key', bundle);
     await secrets.write('config', jsonEncode(config.toMap()));
     final consent = await secrets.read('consent');
     if (consent != config.endpoint) await secrets.delete('consent');
   });
-  Future<void> deleteApiKey() => _locked(() => secrets.delete('api-key'));
+  Future<void> deleteApiKey() => _locked(() async {
+    await _clearCatalogs();
+    await secrets.delete('api-key');
+  });
+
+  int _catalogRevision = 0;
+  int get catalogRevision => _catalogRevision;
+  Future<void> _clearCatalogs() async {
+    _catalogRevision++;
+    final directory = await _directory();
+    if (await directory.exists()) {
+      await for (final entity in directory.list()) {
+        if (entity is File &&
+            (entity.path.endsWith('.aimc') ||
+                entity.path.endsWith('.aimc.tmp'))) {
+          await entity.delete();
+        }
+      }
+    }
+    await secrets.delete('catalog-encryption-key');
+    await secrets.delete('catalog-consent');
+  }
+
+  Future<String?> catalogAddress(String endpoint) async {
+    final raw = await secrets.read('catalog-address');
+    if (raw == null) return null;
+    final value = jsonDecode(raw) as Map;
+    return value['endpoint'] == endpoint ? value['address'] as String? : null;
+  }
+
+  Future<void> saveCatalogAddress(String endpoint, String? address) =>
+      _locked(() async {
+        if (address != null && address.isNotEmpty) {
+          validateCatalogUri(endpoint, address);
+        }
+        if (await catalogAddress(endpoint) != address) {
+          await _clearCatalogs();
+        }
+        await secrets.write(
+          'catalog-address',
+          jsonEncode({'endpoint': endpoint, 'address': address}),
+        );
+      });
+  Future<bool> catalogConsented(Uri uri) async =>
+      await secrets.read('catalog-consent') == uri.toString();
+  Future<void> consentCatalog(Uri uri) =>
+      secrets.write('catalog-consent', uri.toString());
+  String _catalogId(String endpoint) =>
+      hashes.sha256.convert(utf8.encode(endpoint)).toString();
+
+  Future<AiCatalogResult?> catalog(String endpoint) => _locked(() async {
+    final directory = await _directory();
+    final file = File(p.join(directory.path, '${_catalogId(endpoint)}.aimc'));
+    if (!await file.exists()) return null;
+    try {
+      final encoded = jsonDecode(await file.readAsString()) as Map;
+      final key = await secrets.read('catalog-encryption-key');
+      if (key == null) throw const FormatException('模型缓存密钥不可用。');
+      final bytes = await _cipher.decrypt(
+        SecretBox(
+          base64Decode(encoded['ciphertext']),
+          nonce: base64Decode(encoded['nonce']),
+          mac: Mac(base64Decode(encoded['mac'])),
+        ),
+        secretKey: SecretKey(base64Decode(key)),
+      );
+      final result = AiCatalogResult.fromMap(
+        jsonDecode(utf8.decode(bytes)) as Map,
+      );
+      if (result.endpoint != endpoint ||
+          result.models.isEmpty ||
+          result.models.length > 2000) {
+        throw const FormatException('模型缓存无效。');
+      }
+      return result;
+    } catch (_) {
+      throw const FormatException('本地模型缓存无法读取，原文件保留；可手动刷新，账本和聊天不受影响。');
+    }
+  });
+
+  /// Recheck account/config generation under the same lock used by key deletion.
+  Future<bool> saveCatalog(
+    AiCatalogResult result,
+    String expectedKey,
+    int revision,
+  ) => _locked(() async {
+    final selected = await config();
+    if (_catalogRevision != revision ||
+        selected?.endpoint != result.endpoint ||
+        await keyFor(selected!) != expectedKey) {
+      return false;
+    }
+    final directory = await _directory();
+    await directory.create(recursive: true);
+    final existing = await secrets.read('catalog-encryption-key');
+    final key = existing == null
+        ? await _cipher.newSecretKey()
+        : SecretKey(base64Decode(existing));
+    if (existing == null) {
+      await secrets.write(
+        'catalog-encryption-key',
+        base64Encode(await key.extractBytes()),
+      );
+    }
+    final box = await _cipher.encrypt(
+      utf8.encode(jsonEncode(result.toMap())),
+      secretKey: key,
+    );
+    final file = File(
+      p.join(directory.path, '${_catalogId(result.endpoint)}.aimc'),
+    );
+    final temporary = File('${file.path}.tmp');
+    await temporary.writeAsString(
+      jsonEncode({
+        'version': 1,
+        'nonce': base64Encode(box.nonce),
+        'ciphertext': base64Encode(box.cipherText),
+        'mac': base64Encode(box.mac.bytes),
+      }),
+      flush: true,
+    );
+    await temporary.rename(file.path);
+    return true;
+  });
   Future<bool> consented(AiConfig config) async =>
       await secrets.read('consent') == config.endpoint;
   Future<void> consent(AiConfig config) =>
@@ -177,6 +302,7 @@ class AiStorage {
   });
 
   Future<void> clear() => _locked(() async {
+    await _clearCatalogs();
     final directory = await _directory();
     if (await directory.exists()) {
       await for (final entity in directory.list()) {

@@ -22,6 +22,11 @@ Future<void> main() async {
       'Noto Serif SC',
     ], await rootBundle.loadString('assets/fonts/OFL.txt'));
   });
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'Lobe Icons',
+    ], await rootBundle.loadString('assets/ai-icons/LICENSE.txt'));
+  });
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   runApp(const Startup());
 }
