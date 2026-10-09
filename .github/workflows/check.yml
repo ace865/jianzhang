@@ -60,10 +60,7 @@ jobs:
       - run: flutter precache --ios
       - name: Install locked CocoaPods dependencies
         working-directory: ios
-        run: |
-          bundle exec pod install
-          cat Podfile.lock
-          git diff --exit-code Podfile.lock
+        run: bundle exec pod install --deployment
       - run: flutter test --no-pub
       - name: Build unsigned iOS release
         run: |

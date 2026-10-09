@@ -168,10 +168,12 @@ class AiStorage {
   Future<bool> saveCatalog(
     AiCatalogResult result,
     String expectedKey,
-    int revision,
-  ) => _locked(() async {
+    int revision, {
+    bool Function()? isCurrent,
+  }) => _locked(() async {
     final selected = await config();
-    if (_catalogRevision != revision ||
+    if (isCurrent?.call() == false ||
+        _catalogRevision != revision ||
         selected?.endpoint != result.endpoint ||
         await keyFor(selected!) != expectedKey) {
       return false;
@@ -205,6 +207,10 @@ class AiStorage {
       }),
       flush: true,
     );
+    if (isCurrent?.call() == false) {
+      await temporary.delete();
+      return false;
+    }
     await temporary.rename(file.path);
     return true;
   });

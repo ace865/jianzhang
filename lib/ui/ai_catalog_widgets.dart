@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/ai_catalog.dart';
 
@@ -10,7 +11,7 @@ class AiBrandIcon extends StatelessWidget {
   final String? brand;
   @override
   Widget build(BuildContext context) => brand == null
-      ? const Icon(Icons.chat_bubble_outline, size: 24)
+      ? const Icon(LucideIcons.messageSquare, size: 24)
       : SvgPicture.asset(
           'assets/ai-icons/$brand.svg',
           width: 24,

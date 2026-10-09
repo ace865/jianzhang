@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/ai_catalog.dart';
 import '../core/ai_catalog_client.dart';
@@ -76,12 +77,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   void _showError(Object error) {
     if (!mounted) return;
     setState(() => _error = _errorText(error));
-    if (_scroll.hasClients)
+    if (_scroll.hasClients) {
       _scroll.animateTo(
         0,
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
+    }
   }
 
   String _errorText(Object error) => error is FormatException
@@ -275,7 +277,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       if (generation != _generation || !mounted) return;
       final result = await _catalogClient.fetch(config, key, uri, _cancel!);
       if (generation != _generation || !mounted || _cancel!.isCancelled) return;
-      if (!await widget.service.storage.saveCatalog(result, key, revision)) {
+      if (!await widget.service.storage.saveCatalog(
+        result,
+        key,
+        revision,
+        isCurrent: () =>
+            mounted && generation == _generation && !_cancel!.isCancelled,
+      )) {
         return;
       }
       if (generation == _generation && mounted) {
@@ -325,6 +333,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             ),
           DropdownButtonFormField<String>(
             key: ValueKey('provider-${_provider?.id}'),
+            icon: const Icon(LucideIcons.chevronDown, size: 20),
             initialValue:
                 _provider?.id ?? (_endpoint.text.isEmpty ? null : 'custom'),
             isExpanded: true,
@@ -388,12 +397,12 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             children: [
               TextButton.icon(
                 onPressed: frozen || _models.isEmpty ? null : _chooseModel,
-                icon: const Icon(Icons.list_alt, size: 20),
+                icon: const Icon(LucideIcons.list, size: 20),
                 label: const Text('选择模型'),
               ),
               TextButton.icon(
                 onPressed: actionDisabled ? null : _refresh,
-                icon: const Icon(Icons.refresh, size: 20),
+                icon: const Icon(LucideIcons.refreshCw, size: 20),
                 label: Text(_provider?.id == 'zhipu' ? '在线刷新暂不支持' : '刷新模型列表'),
               ),
               if (_refreshing)
@@ -490,6 +499,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           ),
           DropdownButtonFormField<String>(
             key: ValueKey(_tokenField),
+            icon: const Icon(LucideIcons.chevronDown, size: 20),
             initialValue: _tokenField,
             isExpanded: true,
             decoration: const InputDecoration(

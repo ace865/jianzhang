@@ -252,6 +252,8 @@ void main() {
       catalog.hold = Completer<void>();
       await tap(tester, '刷新模型列表');
       expect(catalog.calls, 3);
+      await tester.drag(find.byType(ListView).first, const Offset(0, 2000));
+      await settle(tester);
       await tester.ensureVisible(
         find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
       );
