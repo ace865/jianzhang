@@ -18,6 +18,8 @@ class AiService extends ChangeNotifier {
   final AiChatClient client;
   AiConfig? config;
   List<AiConversation> history = [];
+  // Transient state only: do not change the encrypted conversation format.
+  final Map<String, String> persistenceErrors = {};
   Future<void>? _loading;
   bool busy = false, _disposed = false, _stopRequested = false;
   CancelToken? _cancel;
@@ -27,9 +29,15 @@ class AiService extends ChangeNotifier {
   }
 
   Future<void> initialize() => _loading ??= _load();
+  Future<AiConfig?> loadConfiguration() async {
+    config = await storage.config();
+    _notify();
+    return config;
+  }
+
   Future<void> _load() async {
     try {
-      config = await storage.config();
+      await loadConfiguration();
       history = await storage.conversations();
       _notify();
     } catch (_) {
@@ -60,6 +68,9 @@ class AiService extends ChangeNotifier {
 
   Future<void> send(AiConversation conversation, String question) async {
     if (busy) throw const FormatException('当前请求尚未结束。');
+    if (persistenceErrors.containsKey(conversation.id)) {
+      throw const FormatException('本地记录尚未保存，请先仅重试保存或复制回复，不会自动重发请求。');
+    }
     final selected = config;
     if (selected == null || !compatible(conversation)) {
       throw const FormatException('服务或模型已改变，请生成新报告，不会转发旧对话。');
@@ -123,11 +134,41 @@ class AiService extends ChangeNotifier {
       _cancel?.cancel();
       _cancel = null;
       try {
-        if (turn != null) await storage.save(conversation);
+        if (turn != null) {
+          try {
+            await storage.save(conversation);
+            persistenceErrors.remove(conversation.id);
+          } catch (_) {
+            final message = turn.status == AiTurnStatus.complete
+                ? '回复已完成，但本地保存失败。服务商可能已计费，关闭应用前结果尚未持久化；请仅重试保存或复制回复。'
+                : '本地记录保存失败，关闭应用前记录尚未持久化；请仅重试保存或复制回复，不会重发网络请求。';
+            persistenceErrors[conversation.id] = message;
+            throw FormatException(message);
+          }
+        }
       } finally {
         busy = false;
         _notify();
       }
+    }
+  }
+
+  Future<void> retrySave(AiConversation conversation) async {
+    if (busy) throw const FormatException('请等待当前操作结束。');
+    if (!persistenceErrors.containsKey(conversation.id) ||
+        !history.contains(conversation)) {
+      return;
+    }
+    busy = true;
+    _notify();
+    try {
+      await storage.save(conversation);
+      persistenceErrors.remove(conversation.id);
+    } catch (_) {
+      throw FormatException(persistenceErrors[conversation.id]!);
+    } finally {
+      busy = false;
+      _notify();
     }
   }
 
@@ -172,6 +213,7 @@ class AiService extends ChangeNotifier {
     if (busy) throw const FormatException('请先停止请求。');
     await storage.delete(id);
     history.removeWhere((c) => c.id == id);
+    persistenceErrors.remove(id);
     _notify();
   }
 
@@ -179,6 +221,7 @@ class AiService extends ChangeNotifier {
     if (busy) throw const FormatException('请先停止请求。');
     await storage.clear();
     history.clear();
+    persistenceErrors.clear();
     _loading = null;
     _notify();
   }

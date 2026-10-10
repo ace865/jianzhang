@@ -164,10 +164,11 @@ class LedgerScreenState extends State<LedgerScreen> {
     if (start.day == 1 && end == DateTime(start.year, start.month + 1)) {
       return '${start.year}年${start.month}月';
     }
-    if (end.difference(start).inDays == 1) {
+    final lastDay = DateTime(end.year, end.month, end.day - 1);
+    if (dayKey(start) == dayKey(lastDay)) {
       return '${start.year}年${start.month}月${start.day}日';
     }
-    return '${dayKey(start)} — ${dayKey(end.subtract(const Duration(days: 1)))}';
+    return '${dayKey(start)} — ${dayKey(lastDay)}';
   }
 
   Future<void> _pickRange() async {
@@ -177,8 +178,13 @@ class LedgerScreenState extends State<LedgerScreen> {
       lastDate: DateTime(2100, 12, 31),
       initialDateRange: DateTimeRange(
         start: _filter.start ?? DateTime.now(),
-        end: (_filter.end ?? DateTime.now().add(const Duration(days: 1)))
-            .subtract(const Duration(days: 1)),
+        end: _filter.end == null
+            ? DateTime.now()
+            : DateTime(
+                _filter.end!.year,
+                _filter.end!.month,
+                _filter.end!.day - 1,
+              ),
       ),
       helpText: '筛选账单日期',
       saveText: '应用',
@@ -488,7 +494,7 @@ class LedgerScreenState extends State<LedgerScreen> {
           const SliverToBoxAdapter(
             child: EmptyView(
               title: '没有符合条件的账单',
-              subtitle: '试着调整筛选条件，或点击下方记一笔。',
+              subtitle: '试着调整筛选条件，或返回总览记一笔。',
             ),
           )
         else
@@ -513,9 +519,16 @@ class LedgerScreenState extends State<LedgerScreen> {
                             ),
                           ),
                         ),
-                        Text(
-                          '支出 ${money(total.expense)}',
-                          style: Theme.of(context).textTheme.bodySmall,
+                        Flexible(
+                          child: Text(
+                            _filter.kind == EntryKind.income
+                                ? '收入 ${money(total.income)}'
+                                : _filter.kind == EntryKind.expense
+                                ? '支出 ${money(total.expense)}'
+                                : '收入 ${money(total.income)} · 支出 ${money(total.expense)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                            textAlign: TextAlign.end,
+                          ),
                         ),
                       ],
                     ),

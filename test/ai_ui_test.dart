@@ -21,7 +21,14 @@ import 'package:jianzhang/core/wechat_import.dart';
 import 'package:jianzhang/ui/ai.dart';
 import 'package:jianzhang/ui/theme.dart';
 
-import 'ai_test.dart' show MemorySecrets, FakeClient, config, fakeKey, entry;
+import 'ai_test.dart'
+    show
+        MemorySecrets,
+        FakeClient,
+        FinalSaveFailingStorage,
+        config,
+        fakeKey,
+        entry;
 import 'app_test.dart' show settle;
 
 import 'support/test_fonts.dart';
@@ -46,6 +53,18 @@ class FakeCatalogClient implements AiModelCatalogClient {
       refreshedAt: DateTime(2026, 10, 9),
       models: const [AiCatalogModel('synthetic-new-model')],
     );
+  }
+}
+
+class KeyFaultStorage extends AiStorage {
+  KeyFaultStorage({required super.secrets, required super.directory});
+  bool failKey = false;
+  Completer<String?>? delayed;
+  @override
+  Future<String?> keyFor(AiConfig config) async {
+    if (delayed != null) return delayed!.future;
+    if (failKey) throw const FormatException('模拟密钥读取失败');
+    return super.keyFor(config);
   }
 }
 
@@ -159,6 +178,152 @@ void main() {
       image.dispose();
     });
   }
+
+  for (final failure in ['corrupt history', 'missing history key']) {
+    testWidgets('saved settings recover independently from $failure', (
+      tester,
+    ) async {
+      final selected = AiConfig(
+        endpoint: config.endpoint,
+        model: 'saved-model',
+        streaming: false,
+        tokenField: 'max_completion_tokens',
+      );
+      await tester.runAsync(
+        () => service.storage.saveConfig(selected, fakeKey),
+      );
+      await tester.runAsync(() async {
+        final snapshot = await readAiSnapshot(
+          db,
+          PeriodWindow(Period.month, DateTime.now()),
+          EntryKind.expense,
+        );
+        await service.storage.save(
+          AiConversation(id: 'synthetic', snapshot: snapshot, config: selected),
+        );
+        if (failure == 'corrupt history') {
+          await File('${directory.path}/synthetic.aic')
+              .writeAsString('not encrypted JSON');
+        } else {
+          await service.storage.secrets.delete('encryption-key');
+        }
+        await expectLater(service.initialize(), throwsFormatException);
+      });
+      await launch(tester, settings: true);
+      expect(find.widgetWithText(TextField, selected.endpoint), findsOneWidget);
+      expect(find.widgetWithText(TextField, selected.model), findsOneWidget);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, false);
+      expect(service.config?.tokenField, 'max_completion_tokens');
+      expect(client.calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets(
+    'key read errors on provider change or endpoint edit are caught',
+    (tester) async {
+      final storage = KeyFaultStorage(
+        secrets: MemorySecrets(),
+        directory: () async => directory,
+      );
+      service = AiService(db, storage: storage, client: client);
+      addTearDown(service.dispose);
+      await launch(tester, settings: true);
+      storage.failKey = true;
+      await tester.enterText(
+        find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
+        config.endpoint,
+      );
+      await settle(tester);
+      expect(find.text('模拟密钥读取失败'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DeepSeek').last);
+      await settle(tester);
+      expect(find.text('模拟密钥读取失败'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(client.calls, 0);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'stale key read failure cannot affect a newer endpoint or disposed page',
+    (tester) async {
+      final storage = KeyFaultStorage(
+        secrets: MemorySecrets(),
+        directory: () async => directory,
+      );
+      service = AiService(db, storage: storage, client: client);
+      addTearDown(service.dispose);
+      await launch(tester, settings: true);
+      final old = Completer<String?>();
+      storage.delayed = old;
+      await tester.enterText(
+        find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
+        'https://old.invalid/chat',
+      );
+      await tester.pump();
+      storage.delayed = null;
+      await tester.enterText(
+        find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
+        config.endpoint,
+      );
+      old.completeError(const FormatException('旧地址错误'));
+      await settle(tester);
+      expect(find.text('旧地址错误'), findsNothing);
+      expect(tester.takeException(), isNull);
+      final disposed = Completer<String?>();
+      storage.delayed = disposed;
+      await tester.enterText(
+        find.widgetWithText(TextField, '完整 HTTPS 聊天端点'),
+        'https://new.invalid/chat',
+      );
+      await tester.pumpWidget(const SizedBox());
+      disposed.completeError(const FormatException('已关闭页面错误'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'completed reply save failure offers local retry without another request',
+    (tester) async {
+      late FinalSaveFailingStorage broken;
+      await tester.runAsync(() async {
+        broken = FinalSaveFailingStorage(
+          secrets: MemorySecrets(),
+          directory: () async => directory,
+        );
+        final replacement = AiService(db, storage: broken, client: client);
+        final oldLedger = ledger;
+        ledger = LedgerController(db, ai: replacement);
+        oldLedger.dispose();
+        service = replacement;
+        await ledger.initialize();
+        await service.configure(config, fakeKey);
+        await broken.consent(config);
+      });
+      await launch(tester);
+      await tap(tester, '生成分析');
+      await tap(tester, '确认并发送');
+      await idle(tester);
+      expect(client.calls, 1);
+      expect(find.text('仅重试本地保存'), findsOneWidget);
+      expect(find.text('复制回复'), findsOneWidget);
+      await tester.ensureVisible(find.text('仅重试本地保存'));
+      await settle(tester);
+      await screenshot(tester, 'ai-local-save-retry.png');
+      broken.failFinal = false;
+      await tap(tester, '仅重试本地保存');
+      await idle(tester);
+      expect(client.calls, 1);
+      expect(find.text('仅重试本地保存'), findsNothing);
+      expect(service.history.single.hasReport, true);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets('unconfigured analysis navigates to settings without network', (
     tester,

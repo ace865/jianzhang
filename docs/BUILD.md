@@ -24,7 +24,11 @@ debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准�
 
 项目要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。依赖使用 Android 和 iOS 的共享 API，自动检查分别构建两端。整合版的检查和未验收项见 [本版验证记录](verification-1.2.0-beta.2.md)。
 
-## 个人签名发行包（Windows PowerShell）
+## 个人签名发行包（Windows，PowerShell 7.2+）
+
+安装 [PowerShell 7.2 或更新版本](https://aka.ms/powershell)，使用 `pwsh` 打开终端。
+Windows 自带的 PowerShell 5.1 不支持这两个构建／打包脚本；脚本在写入任何签名或产物前检查环境并退出。
+发行签名脚本使用 Windows DPAPI，仅能在 Windows 运行。
 
 ```powershell
 ./scripts/build-release.ps1 -FlutterRoot 'D:\Dev\flutter' -AndroidSdk 'D:\Android\Sdk' -JavaRoot 'C:\Program Files\Android\Android Studio\jbr'
@@ -63,14 +67,20 @@ cd ios
 bundle install
 bundle exec pod install --deployment
 cd ..
-BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter build ios --release --no-codesign --no-pub --build-name=1.2.0 --build-number=4
+app_version=$(sed -n 's/^version: //p' pubspec.yaml)
+ios_version="${app_version%%+*}"
+ios_version="${ios_version%%-*}"
+app_build="${app_version##*+}"
+[[ "$ios_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+[[ "$app_build" =~ ^[1-9][0-9]*$ ]] || exit 1
+BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter build ios --release --no-codesign --no-pub --build-name="$ios_version" --build-number="$app_build"
 ```
 
-命令中的版本对应当前 `1.2.0-beta.2+4`。后续构建从 `pubspec.yaml` 提取三段数字及构建号。iOS 的 `CFBundleShortVersionString` 不包含 beta 后缀；完整测试版本保留在产品版本和发布记录中。构建不会改写产品版本来源。
+上述命令始终从 `pubspec.yaml` 提取三段数字及构建号。iOS 的 `CFBundleShortVersionString` 不包含 beta 后缀；完整测试版本保留在产品版本和发布记录中。构建不会改写产品版本来源。
 
 产物为 `build/ios/iphoneos/Runner.app`。它没有签名，不能直接安装到 iPhone，也不是可分发的 IPA。需要签名时，通过 `ios/Runner.xcworkspace` 打开工程，在本机选择实际开发团队，确认应用标识 `cn.local.jianzhang` 可用。不要提交团队、证书、设备配置或机器路径。
 
-使用模拟器时，在 Xcode 中安装 iOS 模拟器运行时，创建设备，再运行 `flutter devices` 和 `BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter run -d 设备ID --build-name=1.2.0 --build-number=4`。模拟器测试不能替代真机验收。调试真机需要签名和设备授权，本次没有完成这些步骤。
+调试运行也先执行上述版本提取与校验命令，再运行 `flutter devices` 和 `BUNDLE_GEMFILE=ios/Gemfile bundle exec flutter run -d 设备ID --build-name="$ios_version" --build-number="$app_build"`。模拟器需要另行安装运行时，不能替代真机验收；本次未运行模拟器。调试真机需要签名和设备授权，本次没有完成这些步骤。
 
 ## iOS 验收与发布边界
 

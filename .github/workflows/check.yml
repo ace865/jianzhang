@@ -10,6 +10,14 @@ concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  windows-scripts:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Build environment and source packaging regression
+        shell: pwsh
+        run: ./scripts/test-build-environment.ps1
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -32,6 +40,7 @@ jobs:
         run: |
           for zone in UTC Asia/Shanghai America/New_York; do
             TZ="$zone" flutter test --no-pub test/wechat_import_test.dart --plain-name 'Excel calendar regression'
+            TZ="$zone" flutter test --no-pub test/ledger_stability_test.dart --plain-name 'Calendar range regression'
           done
       - run: flutter build apk --debug --no-pub
 

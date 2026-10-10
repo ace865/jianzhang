@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/ai_client.dart';
@@ -267,6 +268,9 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
     final ink = InkColors.of(context);
     final disabled = _loading || _preparing || _service.busy;
     final conversation = _conversation;
+    final persistenceError = conversation == null
+        ? null
+        : _service.persistenceErrors[conversation.id];
     final snapshot = conversation?.snapshot ?? _snapshot;
     final compatible =
         conversation == null || _service.compatible(conversation);
@@ -368,7 +372,10 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                       runSpacing: 8,
                       children: [
                         FilledButton(
-                          onPressed: disabled || !snapshot.available
+                          onPressed:
+                              disabled ||
+                                  !snapshot.available ||
+                                  persistenceError != null
                               ? null
                               : () => _send(regenerate: conversation != null),
                           child: Text(
@@ -393,6 +400,58 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                         child: Text('没有可分析的已记录数据，或所选期间在未来。不会请求 API。'),
                       ),
                   ],
+                  if (conversation != null && persistenceError != null)
+                    Panel(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(persistenceError),
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              TextButton(
+                                onPressed: disabled
+                                    ? null
+                                    : () async {
+                                        try {
+                                          await _service.retrySave(
+                                            conversation,
+                                          );
+                                          if (mounted) {
+                                            setState(() => _error = null);
+                                          }
+                                        } catch (error) {
+                                          if (mounted) {
+                                            setState(
+                                              () => _error = _aiError(error),
+                                            );
+                                          }
+                                        }
+                                      },
+                                child: const Text('仅重试本地保存'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(
+                                      text: conversation.turns
+                                          .map(
+                                            (t) => '${t.question}\n${t.answer}',
+                                          )
+                                          .join('\n\n'),
+                                    ),
+                                  );
+                                  if (context.mounted) {
+                                    message(context, '回复已复制，请妥善保存。');
+                                  }
+                                },
+                                child: const Text('复制回复'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   if (conversation != null)
                     ...conversation.turns.map(
                       (turn) => Padding(
@@ -451,7 +510,9 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: disabled ? null : () => _send(),
+                        onPressed: disabled || persistenceError != null
+                            ? null
+                            : () => _send(),
                         child: const Text('预览并发送'),
                       ),
                     ),

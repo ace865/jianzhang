@@ -80,6 +80,25 @@ Uint8List xlsx(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final separator in ['\n', '\r\n', '\r']) {
+    test(
+      'CSV record endings ${separator.codeUnits} preserve quoted fields',
+      () {
+        final a = bill(order: 'a')..[3] = '含逗号,和"引号"\r\n第二行';
+        final b = bill(order: 'b');
+        final text = ListToCsvConverter(eol: separator)
+            .convert([wechatHeaders, a, b]);
+        final rows = parseWechatCsv(text);
+        expect(rows.map((r) => r.order), ['a', 'b']);
+        expect(rows.first.cells[3], a[3]);
+      },
+    );
+  }
+  test('CSV mixed record endings never silently lose orders', () {
+    final text =
+        '${wechatHeaders.join(',')}\r\n${bill(order: 'a').join(',')}\n${bill(order: 'b').join(',')}\r';
+    expect(parseWechatCsv(text).map((r) => r.order), ['a', 'b']);
+  });
   sqfliteFfiInit();
   late LedgerDatabase store;
   setUp(() async {
@@ -87,6 +106,48 @@ void main() {
       path: inMemoryDatabasePath,
       factory: databaseFactoryFfi,
     );
+  });
+  test('refund status change conflicts without changing old entry, after backup too', () async {
+    final original = parsed([bill()]);
+    await store.importWechat(await store.previewWechat(original));
+    final refund = parsed([bill(status: '已全额退款')]);
+    final items = await store.previewWechat(refund);
+    expect(items.single.disposition, ImportDisposition.conflict);
+    expect(items.single.selected, false);
+    expect(items.single.reason, contains('状态'));
+    final before = await store.exportBackup();
+    await store.importWechat(items);
+    expect((await store.totals(const EntryFilter())).expense, 1230);
+    await store.restore(decodeBackup(jsonEncode(before)));
+    expect(
+      (await store.previewWechat(refund)).single.disposition,
+      ImportDisposition.conflict,
+    );
+    expect(
+      (await store.previewWechat(original)).single.disposition,
+      ImportDisposition.duplicate,
+    );
+    expect(
+      (await store.previewWechat([...original, ...refund]))
+          .every((i) => i.disposition == ImportDisposition.conflict),
+      true,
+    );
+  });
+  test('legacy fingerprints still deduplicate normal orders and flag special status', () async {
+    final row = parsed([bill()]).single;
+    await store.importWechat(await store.previewWechat([row]));
+    await store.db.update('import_sources', {
+      'fingerprint': row.legacyFingerprint,
+    });
+    await store.restore(decodeBackup(jsonEncode(await store.exportBackup())));
+    expect(
+      (await store.previewWechat([row])).single.disposition,
+      ImportDisposition.duplicate,
+    );
+    final refund = (await store.previewWechat(parsed([bill(status: '已全额退款')])))
+        .single;
+    expect(refund.disposition, ImportDisposition.conflict);
+    expect(refund.reason, contains('旧导入未记录'));
   });
   tearDown(() async {
     await store.close();
