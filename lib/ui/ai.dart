@@ -432,17 +432,24 @@ class _AiAnalysisScreenState extends State<AiAnalysisScreen> {
                               ),
                               TextButton(
                                 onPressed: () async {
-                                  await Clipboard.setData(
-                                    ClipboardData(
-                                      text: conversation.turns
-                                          .map(
-                                            (t) => '${t.question}\n${t.answer}',
-                                          )
-                                          .join('\n\n'),
-                                    ),
-                                  );
-                                  if (context.mounted) {
-                                    message(context, '回复已复制，请妥善保存。');
+                                  try {
+                                    await Clipboard.setData(
+                                      ClipboardData(
+                                        text: conversation.turns
+                                            .map(
+                                              (t) =>
+                                                  '${t.question}\n${t.answer}',
+                                            )
+                                            .join('\n\n'),
+                                      ),
+                                    );
+                                    if (context.mounted) {
+                                      message(context, '回复已复制，请妥善保存。');
+                                    }
+                                  } catch (_) {
+                                    if (context.mounted) {
+                                      message(context, '复制失败，请长按回复手动复制。');
+                                    }
                                   }
                                 },
                                 child: const Text('复制回复'),
