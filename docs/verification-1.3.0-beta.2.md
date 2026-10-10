@@ -1,6 +1,6 @@
 # 1.3.0-beta.2+7 Android 发布准备
 
-记录日期：2026-10-10。负责人：ace865 / Codex。基于已合并主分支 `eb4b67595fae61af6139889e14d63f006fb68c2f`，发布分支 `codex/release-1.3.0-beta.2`。仅 GitHub Releases Android beta 预发布；iOS 与应用商店不在范围内。
+记录日期：2026-10-10。负责人：ace865 / Codex。关联[发布协调 #24](https://github.com/ace865/jianzhang/issues/24)。基于已合并主分支 `eb4b67595fae61af6139889e14d63f006fb68c2f`，发布分支 `codex/release-1.3.0-beta.2`。仅 GitHub Releases Android beta 预发布；iOS 与应用商店不在范围内。
 
 ## 内容与状态
 
@@ -10,7 +10,15 @@ Android 构建号 7 已为此任务预留，现有最大分发构建号为 6。�
 
 ## 检查及产物
 
-检查结果与 APK 核验将在完成后补录。最终源码提交在 PR 中记录；后续仅修改文档时核对应用输入未变化。拟用标签 `v1.3.0-beta.2`，APK `jianzhang-android-1.3.0-beta.2-build7.apk`，源码 ZIP `jianzhang-1.3.0-beta.2-source.zip`。源码 ZIP 在确认发布并固定标签后生成、逐文件核验，不混入工作区文件或签名材料。
+- Windows / Flutter 3.47.6 / Dart 3.13.5：依赖锁文件校验、35 文件格式检查、静态分析（无问题）、全部 138 项测试通过；依赖和锁文件未改。
+- 维护者原签名 release 构建成功，使用 PowerShell 7 与 `-RequireExistingSignature`；SDK XML 版本提示未阻断构建。
+- 构建源码提交 `02c1a6632300f1d142ddbad638e9e68da56f117a`；随后仅补充验证与发布文档，不改变应用构建输入。最终发布候选提交在 PR 记录，批准后固定标签并复核应用输入一致。
+- APK：`jianzhang-android-1.3.0-beta.2-build7.apk`，78,359,525 字节；实际包名 `cn.local.jianzhang`、versionName `1.3.0-beta.2`、versionCode `7`，最低 API 24、target 36，包含 ARM64、ARMv7、x86_64。
+- APK v2 签名验证通过；证书 SHA-256 `7dbba4b807c6ab37a92116083cbd0170ae40794ab3021fc72d80818c31462ddb`，与历史官方包相同，构建号高于 build6。仅核对包元数据，不代表真机升级已通过。
+- APK SHA-256：`fa8d9a390d9e85896fce21d916beb2bb6a909206a1a4e2efe7524b31c9570e2f`。
+- 发布 PR 的 Android / iOS / Windows 脚本 CI 以最终提交的 GitHub 检查为准，本地 Windows 无法构建 iOS。
+
+拟用标签 `v1.3.0-beta.2`，源码 ZIP `jianzhang-1.3.0-beta.2-source.zip`。源码 ZIP 在确认发布并固定标签后生成、逐文件核验，并在 Release 记录摘要；不混入工作区文件或签名材料。发布说明草稿见[发布材料](release-1.3.0-beta.2.md)，目前未上传附件。
 
 ## 未完成验收与试用方法
 
