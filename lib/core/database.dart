@@ -109,14 +109,23 @@ class LedgerDatabase {
         if (row.sourceKey.isNotEmpty &&
             ((groups[row.sourceKey]?.length ?? 0) > 1 ||
                 (byKey.containsKey(row.sourceKey) &&
-                    byKey[row.sourceKey] != row.fingerprint))) {
+                    byKey[row.sourceKey] != row.fingerprint &&
+                    byKey[row.sourceKey] != row.legacyFingerprint))) {
           state = ImportDisposition.conflict;
-          reason = '同一单号内容冲突，请核对原账单；不会覆盖旧账';
+          reason = '同一单号内容或状态冲突（${row.cells[7]}），请核对原账单；不会覆盖旧账。${row.reason}';
+        } else if (row.sourceKey.isNotEmpty &&
+            byKey[row.sourceKey] == row.legacyFingerprint &&
+            row.disposition == ImportDisposition.review) {
+          // Old fingerprints did not capture status. Do not infer an old status
+          // or overwrite a refund/transfer warning with an ordinary duplicate.
+          state = ImportDisposition.conflict;
+          reason = '旧导入未记录交易状态，本次为${row.cells[7]}，请核对原账单；不会覆盖旧账。${row.reason}';
         } else if (row.sourceKey.isNotEmpty &&
             (byKey.containsKey(row.sourceKey) || !seen.add(row.sourceKey))) {
           state = ImportDisposition.duplicate;
           reason = '交易单号重复，跳过';
         } else if (fingerprints.contains(row.fingerprint) ||
+            fingerprints.contains(row.legacyFingerprint) ||
             manual.contains(
               '${dayKey(row.date!)}/${row.cents}/${row.kind?.name}',
             )) {
@@ -643,6 +652,9 @@ void validateBackup(Map<String, Object?> data) {
   if (data['version'] == 2) {
     final sourceIds = <String>{}, keys = <String>{};
     final digest = RegExp(r'^[a-f0-9]{64}$');
+    final sourceDigest = RegExp(
+      r'^(?:[a-f0-9]{64}|v2:[a-f0-9]{64}:[a-f0-9]{64})$',
+    );
     for (final raw in data['import_sources'] as List) {
       final row = raw as Map;
       if (row['entry_id'] is! String ||
@@ -650,7 +662,7 @@ void validateBackup(Map<String, Object?> data) {
           !sourceIds.add(row['entry_id'] as String) ||
           row['source'] != 'wechat' ||
           row['fingerprint'] is! String ||
-          !digest.hasMatch(row['fingerprint'] as String) ||
+          !sourceDigest.hasMatch(row['fingerprint'] as String) ||
           (row['source_key'] != null &&
               (row['source_key'] is! String ||
                   !digest.hasMatch(row['source_key'] as String) ||

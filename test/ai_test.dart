@@ -80,6 +80,18 @@ class FailingStorage extends AiStorage {
       throw const FormatException('模拟磁盘写入失败');
 }
 
+class FinalSaveFailingStorage extends AiStorage {
+  FinalSaveFailingStorage({required super.secrets, required super.directory});
+  bool failFinal = true;
+  @override
+  Future<void> save(AiConversation conversation) async {
+    if (failFinal && conversation.turns.last.status != AiTurnStatus.running) {
+      throw const FileSystemException('synthetic full disk');
+    }
+    await super.save(conversation);
+  }
+}
+
 class DelayedStorage extends AiStorage {
   DelayedStorage({required super.secrets, required super.directory});
   final started = Completer<void>(), proceed = Completer<void>();
@@ -177,6 +189,108 @@ void main() {
     EntryKind.expense,
     now: DateTime.parse(now),
   );
+
+  test('same-name categories align current previous and budget using anonymous keys', () async {
+    await db.saveCategory(
+      const Category(
+        id: 'PRIVATE-CATEGORY',
+        name: '餐饮',
+        icon: 'utensils',
+        kind: EntryKind.expense,
+      ),
+    );
+    await db.saveCategory(
+      const Category(
+        id: 'PRIVATE-INCOME',
+        name: '餐饮',
+        icon: 'gift',
+        kind: EntryKind.income,
+      ),
+    );
+    for (final row in [
+      ['food', 'expense', '2026-10-01', 100],
+      ['PRIVATE-CATEGORY', 'expense', '2026-10-01', 200],
+      ['food', 'expense', '2026-09-01', 50],
+      ['PRIVATE-CATEGORY', 'expense', '2026-09-01', 80],
+      ['PRIVATE-INCOME', 'income', '2026-10-01', 400],
+    ]) {
+      await db.saveEntry(
+        LedgerEntry(
+          id: newId(),
+          kind: EntryKind.values.byName(row[1] as String),
+          cents: row[3] as int,
+          categoryId: row[0] as String,
+          date: DateTime.parse(row[2] as String),
+          payment: '微信',
+          note: '',
+          createdAt: 1,
+        ),
+      );
+    }
+    await db.setBudget(DateTime(2026, 10), 'food', 1000);
+    await db.setBudget(DateTime(2026, 10), 'PRIVATE-CATEGORY', 2000);
+    await db.setBudget(DateTime(2026, 10), '', 3000);
+    final s = await snapshot();
+    final categories = s.data['categories'] as List;
+    expect(categories.map((r) => r['category_key']).toSet().length, 3);
+    final current = {for (final r in categories) r['cents']: r['category_key']};
+    for (final r in s.data['comparison']['categories']) {
+      expect(r['category_key'], current[r['cents'] == 50 ? 100 : 200]);
+    }
+    for (final r in s.data['budgets']) {
+      expect(
+        r['category_key'],
+        r['scope'] == 'total' ? null : current[r['spent_cents']],
+      );
+    }
+    expect(s.text, isNot(contains('PRIVATE-')));
+    expect(s.text, isNot(contains('local_id')));
+    expect(s.data['expense'], 300);
+    final backup = await db.exportBackup();
+    await db.restore(backup);
+    expect((await snapshot()).digest, s.digest);
+  });
+
+  test('final save failure keeps completed answer, retry is local only and survives restart', () async {
+    await db.saveEntry(entry('a', '2026-10-01', 10));
+    final broken = FinalSaveFailingStorage(
+      secrets: secrets,
+      directory: () async => directory,
+    );
+    final fake = FakeClient();
+    final service = AiService(db, storage: broken, client: fake);
+    addTearDown(service.dispose);
+    await service.initialize();
+    await service.configure(config, fakeKey);
+    await broken.consent(config);
+    final conversation = AiConversation(
+      snapshot: await snapshot(),
+      config: config,
+    );
+    await expectLater(
+      service.send(conversation, 'report'),
+      throwsFormatException,
+    );
+    expect(conversation.hasReport, true);
+    expect(service.persistenceErrors[conversation.id], contains('可能已计费'));
+    expect((await broken.conversations()).single.hasReport, false);
+    await expectLater(
+      service.send(conversation, 'follow-up'),
+      throwsFormatException,
+    );
+    await expectLater(service.retrySave(conversation), throwsFormatException);
+    expect(fake.calls, 1);
+    broken.failFinal = false;
+    final saving = service.retrySave(conversation);
+    await expectLater(service.retrySave(conversation), throwsFormatException);
+    await saving;
+    expect(fake.calls, 1);
+    expect(service.persistenceErrors, isEmpty);
+    final reloaded = (await broken.conversations()).single;
+    expect(reloaded.hasReport, true);
+    expect(reloaded.turns.single.answer, '虚构样本报告');
+    expect(service.busy, false);
+  });
 
   test(
     'snapshot amounts are exact, future entries and private fields excluded',

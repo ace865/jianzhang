@@ -1,10 +1,12 @@
-param(
+﻿param(
   [string]$FlutterRoot = 'D:\Dev\flutter',
   [string]$AndroidSdk = 'D:\Android\Sdk',
   [string]$JavaRoot = 'C:\Program Files\Android\Android Studio\jbr',
   [switch]$RequireExistingSignature
 )
 $ErrorActionPreference = 'Stop'
+if ($PSVersionTable.PSVersion -lt [version]'7.2' -or $PSVersionTable.PSEdition -ne 'Core') { throw '需要 PowerShell 7.2 或更新版本；请安装 https://aka.ms/powershell 并使用 pwsh 执行。未写入签名或产物。' }
+if (-not $IsWindows) { throw '发行签名脚本仅支持 Windows（使用 DPAPI）；请在原 Windows 签名环境运行。' }
 $appRoot = Split-Path -Parent $PSScriptRoot
 $appSigning = Join-Path $appRoot '.signing'
 $appKey = Join-Path $appSigning 'jianzhang-release.p12'

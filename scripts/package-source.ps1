@@ -1,5 +1,6 @@
-param([Parameter(Mandatory=$true)][string]$Tag)
+﻿param([Parameter(Mandatory=$true)][string]$Tag)
 $ErrorActionPreference = 'Stop'
+if ($PSVersionTable.PSVersion -lt [version]'7.2' -or $PSVersionTable.PSEdition -ne 'Core') { throw '需要 PowerShell 7.2 或更新版本；请安装 https://aka.ms/powershell 并使用 pwsh 执行。未写入源码产物。' }
 if ($Tag -notmatch '^v\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$') { throw '无效版本标签' }
 $sourceAppRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $sourceAppRoot

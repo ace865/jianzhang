@@ -104,8 +104,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   Future<void> _load() async {
     try {
-      await widget.service.initialize();
-      final config = widget.service.config;
+      // Configuration recovery must not depend on decrypting chat history.
+      final config = await widget.service.loadConfiguration();
       if (!mounted) return;
       if (config != null) {
         _endpoint.text = config.endpoint;
@@ -175,22 +175,33 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         _tokenField = _provider!.tokenField;
       }
     });
+    final generation = _generation;
     await _endpointKey();
     try {
       await _readCatalog();
     } catch (e) {
-      if (mounted) setState(() => _error = _errorText(e));
+      if (mounted && generation == _generation) {
+        setState(() => _error = _errorText(e));
+      }
     }
   }
 
   Future<void> _endpointKey() async {
     final address = _endpoint.text.trim();
     final generation = _generation;
-    final key = await widget.service.storage.keyFor(_draft);
-    if (mounted &&
-        generation == _generation &&
-        address == _endpoint.text.trim()) {
-      setState(() => _hasKey = key != null);
+    try {
+      final key = await widget.service.storage.keyFor(_draft);
+      if (mounted &&
+          generation == _generation &&
+          address == _endpoint.text.trim()) {
+        setState(() => _hasKey = key != null);
+      }
+    } catch (error) {
+      if (mounted &&
+          generation == _generation &&
+          address == _endpoint.text.trim()) {
+        setState(() => _error = _errorText(error));
+      }
     }
   }
 

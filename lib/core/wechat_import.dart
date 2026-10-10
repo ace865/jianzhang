@@ -49,7 +49,10 @@ class WechatRow {
   late final String sourceKey = order.isEmpty
       ? ''
       : sha256.convert(utf8.encode('wechat:$order')).toString();
-  late final String fingerprint = sha256
+  // Versioned inside the existing text field, so DB/backup v2 remain compatible.
+  late final String fingerprint =
+      'v2:$legacyFingerprint:${sha256.convert(utf8.encode(cells[7])).toString()}';
+  late final String legacyFingerprint = sha256
       .convert(
         utf8.encode(
           jsonEncode([
@@ -163,13 +166,34 @@ Future<List<WechatRow>> parseWechatFile(
 
 List<WechatRow> parseWechatCsv(String text) => parseWechatTable(
   const CsvToListConverter(shouldParseNumbers: false, allowInvalid: false)
-      .convert(
-        text.replaceFirst('\uFEFF', ''),
-        eol: text.contains('\r\n') ? '\r\n' : '\n',
-      )
+      .convert(_normalizeCsvRecords(text.replaceFirst('\uFEFF', '')), eol: '\n')
       .map((r) => r.map((v) => v.toString()).toList())
       .toList(),
 );
+
+// Only normalize record separators; preserve quoted field contents byte-for-byte.
+String _normalizeCsvRecords(String text) {
+  final result = StringBuffer();
+  var quoted = false;
+  for (var i = 0; i < text.length; i++) {
+    final c = text[i];
+    if (c == '"') {
+      if (quoted && i + 1 < text.length && text[i + 1] == '"') {
+        result.write('""');
+        i++;
+        continue;
+      }
+      quoted = !quoted;
+    }
+    if (!quoted && c == '\r') {
+      result.write('\n');
+      if (i + 1 < text.length && text[i + 1] == '\n') i++;
+    } else {
+      result.write(c);
+    }
+  }
+  return result.toString();
+}
 
 String _label(String value) => value
     .replaceAll(RegExp(r'[\s\uFEFF]'), '')
