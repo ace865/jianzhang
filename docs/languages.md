@@ -34,3 +34,11 @@ Android debug 构建通过，仅用于构建验证，不作为分发包；SDK �
 | English | 简体中文 | 繁體中文 | 日本語 |
 | --- | --- | --- | --- |
 | ![English](images/language-en.png) | ![简体中文](images/language-zh-Hans.png) | ![繁體中文](images/language-zh-Hant.png) | ![日本語](images/language-ja.png) |
+
+## 本地试用包（2026-10-29）
+
+用户要求先试用，构建源码 `3ff032e357b57d2e6372f7f2eb214724fe1c218d`。`1.4.0-beta.1+9` 原签名 release 构建成功，版本更新后 159 项测试和格式检查通过。文件 `jianzhang-android-1.4.0-beta.1-build9.apk`，79,408,349 字节；实际包名 `cn.local.jianzhang`、versionName `1.4.0-beta.1`、versionCode `9`，最低 API 24 / target 36，包含 ARM64、ARMv7、x86_64。
+
+APK v2 签名核验通过，证书 SHA-256 `7dbba4b807c6ab37a92116083cbd0170ae40794ab3021fc72d80818c31462ddb`，与此前官方包一致。文件 SHA-256 `9a8aa466aae86d2b9f2bdc0d89fbb302ad789319c4862e657ea89ee8c5822144`。
+
+只在聊天本地交付，不上传公开 Release；APK 不进入源码历史，历史包不覆盖。安装前先把完整 JSON 备份保存到应用之外，同签名更高构建号可直接覆盖；不要卸载或清除数据。真机升级、四语言切换/重启保持、原生字体和安全存储等待用户反馈，未把自动测试当作这些项目已通过。源码随后仅补本文档，不改变安装包构建输入。
