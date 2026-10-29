@@ -1,6 +1,6 @@
 # 语言切换
 
-负责人 ace865 / Codex，基于主分支 `84d9158`，分支 `codex/four-languages`，关联[任务 #28](https://github.com/ace865/jianzhang/issues/28)。本次只提交功能 PR，由 songyu00yo 审查合并，不发布安装包或标签。应用版本仍为 `1.3.0+8`，未分配新的分发构建号。
+负责人 ace865 / Codex，基于主分支 `84d9158`，分支 `codex/four-languages`，关联[任务 #28](https://github.com/ace865/jianzhang/issues/28)。功能通过 PR 由 songyu00yo 审查合并。用户随后追加本地原签名安装包试用，版本更新为 `1.4.0-beta.1+9`，Android 构建号 9 已预留；仅在聊天交付，不创建标签或公开 Release，不分发 iOS。
 
 ## 使用方式
 
