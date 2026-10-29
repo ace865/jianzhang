@@ -1,3 +1,5 @@
+import '../l10n/localization.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -95,11 +97,11 @@ class _EntryEditorState extends State<EntryEditor> {
     if (_saving) return;
     final cents = parseMoney(_amount);
     if (cents == null) {
-      message(context, '请输入大于 0、最多两位小数的金额');
+      message(context, tr(context).enterAnAmountGreaterThanZeroWith);
       return;
     }
     if (_category.isEmpty) {
-      message(context, '请先在设置中添加或启用分类');
+      message(context, tr(context).addOrEnableACategoryInSettings);
       return;
     }
     setState(() => _saving = true);
@@ -119,12 +121,17 @@ class _EntryEditorState extends State<EntryEditor> {
       );
       if (mounted) {
         Navigator.pop(context);
-        message(context, widget.entry == null ? '已记下这一笔' : '账单已更新');
+        message(
+          context,
+          widget.entry == null
+              ? tr(context).entrySaved
+              : tr(context).entryUpdated,
+        );
       }
     } catch (error) {
       if (mounted) {
         setState(() => _saving = false);
-        message(context, errorText(error));
+        message(context, errorText(context, error));
       }
     }
   }
@@ -132,10 +139,12 @@ class _EntryEditorState extends State<EntryEditor> {
   Future<void> _delete() async {
     final confirmed = await confirm(
       context,
-      title: '删除这笔账单？',
-      body:
-          '${dayKey(_date)} · ${money(widget.entry!.cents)}\n删除后，相关统计和预算会同步更新。',
-      action: '删除',
+      title: tr(context).deleteThisEntry,
+      body: tr(context).pPRelatedStatisticsAndBudgetsWill(
+        (dateLabel(context, _date)).toString(),
+        (money(widget.entry!.cents)).toString(),
+      ),
+      action: tr(context).delete,
     );
     if (!confirmed || !mounted) return;
     setState(() => _saving = true);
@@ -143,12 +152,12 @@ class _EntryEditorState extends State<EntryEditor> {
       await widget.controller.delete(widget.entry!.id);
       if (mounted) {
         Navigator.pop(context);
-        message(context, '账单已删除');
+        message(context, tr(context).entryDeleted);
       }
     } catch (error) {
       if (mounted) {
         setState(() => _saving = false);
-        message(context, errorText(error));
+        message(context, errorText(context, error));
       }
     }
   }
@@ -175,7 +184,7 @@ class _EntryEditorState extends State<EntryEditor> {
             top: false,
             child: Column(
               children: [
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 Container(
                   width: 36,
                   height: 4,
@@ -185,18 +194,20 @@ class _EntryEditorState extends State<EntryEditor> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(left: 22, right: 10, top: 6),
+                  padding: EdgeInsets.only(left: 22, right: 10, top: 6),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
-                          widget.entry == null ? '记一笔' : '编辑账单',
+                          widget.entry == null
+                              ? tr(context).addEntry
+                              : tr(context).editEntry,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
                       if (widget.entry != null)
                         IconButton(
-                          tooltip: '删除账单',
+                          tooltip: tr(context).deleteEntry,
                           onPressed: _saving ? null : _delete,
                           icon: Icon(
                             LucideIcons.trash2,
@@ -205,18 +216,18 @@ class _EntryEditorState extends State<EntryEditor> {
                           ),
                         ),
                       IconButton(
-                        tooltip: '关闭',
+                        tooltip: tr(context).close,
                         onPressed: _saving
                             ? null
                             : () => Navigator.pop(context),
-                        icon: const Icon(LucideIcons.x, size: 22),
+                        icon: Icon(LucideIcons.x, size: 22),
                       ),
                     ],
                   ),
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    padding: EdgeInsets.symmetric(horizontal: 22),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -238,15 +249,17 @@ class _EntryEditorState extends State<EntryEditor> {
                         GestureDetector(
                           onTap: () => _noteFocus.unfocus(),
                           child: Semantics(
-                            label: '金额 ${_amount.isEmpty ? '0' : _amount} 元',
+                            label: tr(context).amountPCny(
+                              (_amount.isEmpty ? '0' : _amount).toString(),
+                            ),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              padding: EdgeInsets.symmetric(vertical: 20),
                               child: FittedBox(
                                 alignment: Alignment.centerLeft,
                                 fit: BoxFit.scaleDown,
                                 child: Text(
                                   '¥ ${_amount.isEmpty ? '0.00' : _amount}',
-                                  key: const ValueKey('entry-amount'),
+                                  key: ValueKey('entry-amount'),
                                   style: Theme.of(context)
                                       .textTheme
                                       .headlineLarge
@@ -257,9 +270,10 @@ class _EntryEditorState extends State<EntryEditor> {
                           ),
                         ),
                         if (categories.isEmpty)
-                          const EmptyView(
-                            title: '还没有可用分类',
-                            subtitle: '请到设置中的分类管理添加或启用分类。',
+                          EmptyView(
+                            title: tr(context).noAvailableCategories,
+                            subtitle: tr(context)
+                                .addOrEnableCategoriesInSettingsCategories,
                           )
                         else
                           LayoutBuilder(
@@ -273,7 +287,12 @@ class _EntryEditorState extends State<EntryEditor> {
                                       child: Semantics(
                                         selected: category.id == _category,
                                         button: true,
-                                        label: '${category.name}分类',
+                                        label: tr(context).pCategory(
+                                          (categoryLabel(
+                                            context,
+                                            category,
+                                          )).toString(),
+                                        ),
                                         child: InkWell(
                                           borderRadius: BorderRadius.circular(
                                             8,
@@ -284,7 +303,7 @@ class _EntryEditorState extends State<EntryEditor> {
                                                   () => _category = category.id,
                                                 ),
                                           child: Padding(
-                                            padding: const EdgeInsets.symmetric(
+                                            padding: EdgeInsets.symmetric(
                                               vertical: 10,
                                             ),
                                             child: Column(
@@ -294,9 +313,12 @@ class _EntryEditorState extends State<EntryEditor> {
                                                   size: 26,
                                                   color: ink.ink,
                                                 ),
-                                                const SizedBox(height: 7),
+                                                SizedBox(height: 7),
                                                 Text(
-                                                  category.name,
+                                                  categoryLabel(
+                                                    context,
+                                                    category,
+                                                  ),
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
@@ -305,7 +327,7 @@ class _EntryEditorState extends State<EntryEditor> {
                                                     color: ink.ink,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 6),
+                                                SizedBox(height: 6),
                                                 Container(
                                                   width: 32,
                                                   height: 2,
@@ -324,16 +346,16 @@ class _EntryEditorState extends State<EntryEditor> {
                                   .toList(),
                             ),
                           ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         Panel(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: EdgeInsets.symmetric(horizontal: 12),
                           child: Column(
                             children: [
                               _field(
                                 context,
                                 LucideIcons.calendarDays,
-                                '日期',
-                                dayKey(_date),
+                                tr(context).date,
+                                dateLabel(context, _date),
                                 () async {
                                   final date = await showDatePicker(
                                     context: context,
@@ -346,12 +368,12 @@ class _EntryEditorState extends State<EntryEditor> {
                                   }
                                 },
                               ),
-                              const Divider(),
+                              Divider(),
                               _field(
                                 context,
                                 LucideIcons.wallet,
-                                '支付方式',
-                                _payment,
+                                tr(context).paymentMethod,
+                                paymentLabel(context, _payment),
                                 () async {
                                   final value =
                                       await showModalBottomSheet<String>(
@@ -363,9 +385,14 @@ class _EntryEditorState extends State<EntryEditor> {
                                             children: paymentMethods
                                                 .map(
                                                   (method) => ListTile(
-                                                    title: Text(method),
+                                                    title: Text(
+                                                      paymentLabel(
+                                                        context,
+                                                        method,
+                                                      ),
+                                                    ),
                                                     trailing: method == _payment
-                                                        ? const Icon(
+                                                        ? Icon(
                                                             LucideIcons.check,
                                                             size: 20,
                                                           )
@@ -385,7 +412,7 @@ class _EntryEditorState extends State<EntryEditor> {
                                   }
                                 },
                               ),
-                              const Divider(),
+                              Divider(),
                               TextField(
                                 controller: _note,
                                 focusNode: _noteFocus,
@@ -394,12 +421,12 @@ class _EntryEditorState extends State<EntryEditor> {
                                 maxLines: 3,
                                 textInputAction: TextInputAction.done,
                                 onSubmitted: (_) => _noteFocus.unfocus(),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   prefixIcon: Icon(
                                     LucideIcons.notebookPen,
                                     size: 18,
                                   ),
-                                  hintText: '备注（可选）',
+                                  hintText: tr(context).noteOptional,
                                   counterText: '',
                                   filled: false,
                                   border: InputBorder.none,
@@ -410,12 +437,12 @@ class _EntryEditorState extends State<EntryEditor> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12),
                         if (!_noteFocus.hasFocus)
                           GridView.count(
                             crossAxisCount: 3,
                             shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
+                            physics: NeverScrollableScrollPhysics(),
                             childAspectRatio: 2.7,
                             mainAxisSpacing: 6,
                             crossAxisSpacing: 8,
@@ -449,13 +476,13 @@ class _EntryEditorState extends State<EntryEditor> {
                                               : null,
                                           child: Center(
                                             child: key == '⌫'
-                                                ? const Icon(
+                                                ? Icon(
                                                     LucideIcons.delete,
                                                     size: 20,
                                                   )
                                                 : Text(
                                                     key,
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontSize: 21,
                                                       fontWeight:
                                                           FontWeight.w500,
@@ -467,24 +494,28 @@ class _EntryEditorState extends State<EntryEditor> {
                                     )
                                     .toList(),
                           ),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10),
                       ],
                     ),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+                  padding: EdgeInsets.fromLTRB(22, 8, 22, 12),
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _saving ? null : _save,
                       child: _saving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Text(widget.entry == null ? '保存账单' : '保存修改'),
+                          : Text(
+                              widget.entry == null
+                                  ? tr(context).saveEntry
+                                  : tr(context).saveChanges,
+                            ),
                     ),
                   ),
                 ),
@@ -505,13 +536,13 @@ class _EntryEditorState extends State<EntryEditor> {
   ) => InkWell(
     onTap: _saving ? null : tap,
     child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 2),
+      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 2),
       child: Row(
         children: [
           Icon(icon, size: 18),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Text(label),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
@@ -524,8 +555,8 @@ class _EntryEditorState extends State<EntryEditor> {
               ),
             ),
           ),
-          const SizedBox(width: 5),
-          const Icon(LucideIcons.chevronRight, size: 16),
+          SizedBox(width: 5),
+          Icon(LucideIcons.chevronRight, size: 16),
         ],
       ),
     ),

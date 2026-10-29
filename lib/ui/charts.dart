@@ -1,3 +1,5 @@
+import '../l10n/localization.dart';
+
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
@@ -23,7 +25,10 @@ class SpendingTrend extends StatelessWidget {
   Widget build(BuildContext context) {
     if (points.isEmpty ||
         points.every((p) => p.expense == 0 && p.income == 0)) {
-      return const EmptyView(title: '趋势会出现在这里', subtitle: '记录收支后，即可看到花费的变化。');
+      return EmptyView(
+        title: tr(context).trendsWillAppearHere,
+        subtitle: tr(context).recordIncomeAndExpensesToSeeHow,
+      );
     }
     final ink = InkColors.of(context);
     final maxValue =
@@ -51,11 +56,11 @@ class SpendingTrend extends StatelessWidget {
             : 5,
         getTitlesWidget: (value, meta) {
           final i = value.round();
-          if (i < 0 || i >= points.length) return const SizedBox.shrink();
+          if (i < 0 || i >= points.length) return SizedBox.shrink();
           return Padding(
-            padding: const EdgeInsets.only(top: 7),
+            padding: EdgeInsets.only(top: 7),
             child: Text(
-              points[i].label,
+              trendLabel(context, points[i].label),
               style: TextStyle(fontSize: 10, color: ink.muted),
             ),
           );
@@ -63,8 +68,8 @@ class SpendingTrend extends StatelessWidget {
       ),
     );
     final titles = FlTitlesData(
-      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
       bottomTitles: bottomTitles,
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
@@ -73,7 +78,7 @@ class SpendingTrend extends StatelessWidget {
           interval: maxY / 3,
           getTitlesWidget: (value, meta) => Text(
             value >= 10000
-                ? '${(value / 10000).toStringAsFixed(1)}万'
+                ? tr(context).p(((value / 10000).toStringAsFixed(1)).toString())
                 : value.toStringAsFixed(0),
             style: TextStyle(fontSize: 10, color: ink.muted),
           ),
@@ -89,11 +94,15 @@ class SpendingTrend extends StatelessWidget {
     );
     final duration = Duration(milliseconds: reducedMotion ? 0 : 240);
     return Semantics(
-      label: yearly ? '每月收入与支出对比图' : '${income ? '收入' : '支出'}趋势图',
+      label: yearly
+          ? tr(context).monthlyIncomeAndExpenseComparisonChart
+          : tr(context).pTrendChart(
+              (income ? tr(context).income : tr(context).expenses).toString(),
+            ),
       child: SizedBox(
         height: 140,
         child: Padding(
-          padding: const EdgeInsets.only(top: 18, right: 10),
+          padding: EdgeInsets.only(top: 18, right: 10),
           child: yearly
               ? BarChart(
                   BarChartData(
@@ -113,7 +122,7 @@ class SpendingTrend extends StatelessWidget {
                             toY: points[i].income / 100,
                             color: ink.income,
                             width: 6,
-                            borderRadius: const BorderRadius.vertical(
+                            borderRadius: BorderRadius.vertical(
                               top: Radius.circular(2),
                             ),
                           ),
@@ -121,7 +130,7 @@ class SpendingTrend extends StatelessWidget {
                             toY: points[i].expense / 100,
                             color: ink.accent,
                             width: 6,
-                            borderRadius: const BorderRadius.vertical(
+                            borderRadius: BorderRadius.vertical(
                               top: Radius.circular(2),
                             ),
                           ),
@@ -202,7 +211,10 @@ class CategoryRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const EmptyView(title: '还没有分类数据', subtitle: '记录一笔收支，看看钱花在哪里。');
+      return EmptyView(
+        title: tr(context).noCategoryDataYet,
+        subtitle: tr(context).addAnEntryToSeeWhereYour,
+      );
     }
     final ink = InkColors.of(context),
         total = items.fold<int>(0, (sum, c) => sum + c.cents);
@@ -241,17 +253,17 @@ class CategoryRing extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  income ? '总收入' : '总支出',
+                  income ? tr(context).totalIncome : tr(context).totalExpenses,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 SizedBox(
                   width: 125,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
                       money(total),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
                       ),

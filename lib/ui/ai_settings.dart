@@ -1,10 +1,12 @@
+import '../l10n/system_messages.dart';
+import '../l10n/localization.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/ai_catalog.dart';
 import '../core/ai_catalog_client.dart';
-import '../core/ai_client.dart';
 import '../core/ai_models.dart';
 import '../core/ai_service.dart';
 import 'ai_catalog_widgets.dart';
@@ -38,7 +40,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       _hasKey = false,
       _refreshing = false;
   String _tokenField = 'max_tokens';
-  String? _error, _savedCatalogUrl;
+  Object? _error;
+  String? _savedCatalogUrl;
   AiProvider? _provider;
   AiCatalogResult? _catalog;
   int _generation = 0;
@@ -76,21 +79,16 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   void _showError(Object error) {
     if (!mounted) return;
-    setState(() => _error = _errorText(error));
+    setState(() => _error = error);
     if (_scroll.hasClients) {
       _scroll.animateTo(
         0,
-        duration: const Duration(milliseconds: 200),
+        duration: Duration(milliseconds: 200),
         curve: Curves.easeOut,
       );
     }
   }
 
-  String _errorText(Object error) => error is FormatException
-      ? error.message
-      : error is AiFailure
-      ? error.message
-      : 'AI 操作未完成，账本不受影响，请检查本机存储。';
   Future<void> _readCatalog() async {
     final endpoint = _endpoint.text.trim();
     final generation = _generation;
@@ -122,7 +120,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         await _readCatalog();
       }
     } catch (error) {
-      _error = _errorText(error);
+      if (mounted) _error = error;
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -181,7 +179,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       await _readCatalog();
     } catch (e) {
       if (mounted && generation == _generation) {
-        setState(() => _error = _errorText(e));
+        setState(() => _error = e);
       }
     }
   }
@@ -200,7 +198,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       if (mounted &&
           generation == _generation &&
           address == _endpoint.text.trim()) {
-        setState(() => _error = _errorText(error));
+        setState(() => _error = error);
       }
     }
   }
@@ -223,6 +221,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     final address = _provider == null ? _catalogUrl.text.trim() : '';
     if (address.isNotEmpty) validateCatalogUri(config.endpoint, address);
     final oldKey = await widget.service.storage.keyFor(config);
+    if (!mounted) return;
     final key = _key.text.trim().isEmpty ? oldKey : _key.text.trim();
     if (key == null) throw const FormatException('新服务地址需要重新填写密钥，不会沿用其他地址的密钥。');
     _invalidate();
@@ -235,28 +234,51 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     _key.clear();
     _hasKey = true;
     await _readCatalog();
-    if (mounted) message(context, 'AI 配置已保存，不会自动联网。');
+    if (mounted) {
+      message(
+        context,
+        tr(context).aiConfigurationSavedNoAutomaticNetworkRequest,
+      );
+    }
   });
   Future<void> _test() => _run(() async {
-    if (_dirty) throw const FormatException('表单有未保存修改，请先保存配置。');
+    if (_dirty) {
+      throw LocalizedFailure(
+        'youHaveUnsavedChangesSaveTheConfiguration',
+        tr(context).youHaveUnsavedChangesSaveTheConfiguration,
+      );
+    }
     final config = widget.service.config;
-    if (config == null) throw const FormatException('请先保存配置。');
+    if (config == null) {
+      throw LocalizedFailure(
+        'saveTheConfigurationFirst',
+        tr(context).saveTheConfigurationFirst,
+      );
+    }
     if (!await confirm(
           context,
-          title: '测试连接？',
-          body: '向 ${config.endpoint} 发送一条不含账本的短消息。可能产生 API 费用，不会自动重试。',
-          action: '发送测试',
+          title: tr(context).testConnection,
+          body: tr(context)
+              .sendAShortMessageWithoutLedgerData((config.endpoint).toString()),
+          action: tr(context).sendTest,
         ) ||
         !mounted) {
       return;
     }
-    final result = await widget.service.testConnection();
-    if (mounted) message(context, result);
+    final result = await widget.service.testConnection(
+      language: LanguageSettings.instance.tag,
+    );
+    if (mounted) message(context, systemMessage(context, result) ?? result);
   });
   Future<void> _refresh() async {
     if (_disabled || _refreshing) return;
     if (_dirty) {
-      _showError(const FormatException('表单有未保存修改，请先保存配置后刷新。'));
+      _showError(
+        LocalizedFailure(
+          'youHaveUnsavedChangesSaveBeforeRefreshing',
+          tr(context).youHaveUnsavedChangesSaveBeforeRefreshing,
+        ),
+      );
       return;
     }
     final config = widget.service.config!;
@@ -269,16 +291,22 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     try {
       final uri = catalogUri(config, customUrl: _savedCatalogUrl);
       final key = await widget.service.storage.keyFor(config);
-      if (key == null) throw const FormatException('请先保存此地址的密钥。');
+      if (!mounted) return;
+      if (key == null) {
+        throw LocalizedFailure(
+          'saveTheKeyForThisAddressFirst',
+          tr(context).saveTheKeyForThisAddressFirst,
+        );
+      }
       final revision = widget.service.storage.catalogRevision;
       if (!await widget.service.storage.catalogConsented(uri)) {
         if (!mounted || generation != _generation) return;
         if (!await confirm(
               context,
-              title: '查询模型列表？',
-              body:
-                  '接收地址：$uri\n只发送此地址绑定的认证信息，查询账号模型目录。不发送账本、统计或聊天，不进行聊天测试。服务商计费与权限以官方说明为准。',
-              action: '确认查询',
+              title: tr(context).queryModelList,
+              body: tr(context)
+                  .recipientPOnlyAuthenticationBoundToThis((uri).toString()),
+              action: tr(context).confirmQuery,
             ) ||
             !mounted ||
             generation != _generation) {
@@ -328,30 +356,31 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     final frozen = _disabled;
     final actionDisabled = frozen || _refreshing;
     return Scaffold(
-      appBar: AppBar(title: const Text('AI 服务')),
+      appBar: AppBar(title: Text(tr(context).aiService)),
       body: ListView(
         controller: _scroll,
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(20),
         children: [
-          const Text(
-            '可选联网分析 · 账本仍在本机\n选服务商 → 选模型 → 获取密钥 → 保存配置\n仅支持 OpenAI 兼容文本聊天，密钥由你提供。',
-          ),
-          const SizedBox(height: 18),
-          if (_loading) const LinearProgressIndicator(),
+          Text(tr(context).optionalOnlineAnalysisYourLedgerStaysLocal),
+          SizedBox(height: 18),
+          if (_loading) LinearProgressIndicator(),
           if (_error != null)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(_error!, key: const ValueKey('ai-settings-error')),
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                errorText(context, _error!),
+                key: ValueKey('ai-settings-error'),
+              ),
             ),
           DropdownButtonFormField<String>(
             key: ValueKey('provider-${_provider?.id}'),
-            icon: const Icon(LucideIcons.chevronDown, size: 20),
+            icon: Icon(LucideIcons.chevronDown, size: 20),
             initialValue:
                 _provider?.id ?? (_endpoint.text.isEmpty ? null : 'custom'),
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: '服务商',
-              hintText: '请选择服务商',
+            decoration: InputDecoration(
+              labelText: tr(context).provider,
+              hintText: tr(context).chooseAProvider,
             ),
             items: [
               ...aiProviders.map(
@@ -360,36 +389,41 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   child: Row(
                     children: [
                       AiBrandIcon(p.id),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(p.name)),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(systemMessage(context, p.name) ?? p.name),
+                      ),
                     ],
                   ),
                 ),
               ),
-              const DropdownMenuItem(value: 'custom', child: Text('自定义')),
+              DropdownMenuItem(
+                value: 'custom',
+                child: Text(tr(context).custom),
+              ),
             ],
             onChanged: frozen ? null : _selectProvider,
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           TextField(
             controller: _endpoint,
             enabled: !frozen,
             autocorrect: false,
             enableSuggestions: false,
             onChanged: _editedEndpoint,
-            decoration: const InputDecoration(
-              labelText: '完整 HTTPS 聊天端点',
-              hintText: 'https://你的服务地址/v1/chat/completions',
+            decoration: InputDecoration(
+              labelText: tr(context).fullHttpsChatEndpoint,
+              hintText: tr(context).httpsYourServiceVChatCompletions,
             ),
           ),
           if (_provider?.id == 'qwen')
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
               child: Text(
-                '北京在线模型查询需要业务空间专属域名；普通聊天地址仍可保存使用。请先查看官方说明，再填写完整空间地址和此地址密钥。',
+                tr(context).beijingModelQueriesRequireAWorkspaceSpecific,
               ),
             ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           TextField(
             controller: _model,
             enabled: !frozen,
@@ -398,9 +432,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               _invalidate();
               setState(() {});
             },
-            decoration: const InputDecoration(
-              labelText: '模型名称',
-              hintText: '可手动填写精确模型 ID',
+            decoration: InputDecoration(
+              labelText: tr(context).modelName,
+              hintText: tr(context).youCanEnterAnExactModelId,
             ),
           ),
           Wrap(
@@ -409,39 +443,54 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             children: [
               TextButton.icon(
                 onPressed: frozen || _models.isEmpty ? null : _chooseModel,
-                icon: const Icon(LucideIcons.list, size: 20),
-                label: const Text('选择模型'),
+                icon: Icon(LucideIcons.list, size: 20),
+                label: Text(tr(context).chooseModel),
               ),
               TextButton.icon(
                 onPressed: actionDisabled ? null : _refresh,
-                icon: const Icon(LucideIcons.refreshCw, size: 20),
-                label: Text(_provider?.id == 'zhipu' ? '在线刷新暂不支持' : '刷新模型列表'),
+                icon: Icon(LucideIcons.refreshCw, size: 20),
+                label: Text(
+                  _provider?.id == 'zhipu'
+                      ? tr(context).onlineRefreshIsNotSupportedYet
+                      : tr(context).refreshModelList,
+                ),
               ),
               if (_refreshing)
                 TextButton(
                   onPressed: () => setState(() {
                     _invalidate();
-                    _error = '已取消模型刷新，原列表已保留。';
+                    _error = const LocalizedFailure(
+                      'modelRefreshCancelledThePreviousListIs',
+                      '',
+                    );
                   }),
-                  child: const Text('取消刷新'),
+                  child: Text(tr(context).cancelRefresh),
                 ),
             ],
           ),
-          if (_refreshing) const LinearProgressIndicator(),
+          if (_refreshing) LinearProgressIndicator(),
           Text(
             _catalog == null
-                ? '列表来源：内置目录（未在线刷新）'
-                : '列表来源：${_catalog!.source}\n上次成功刷新：${_catalog!.refreshedAt.toLocal().toString().split('.').first}',
+                ? tr(context).sourceBuiltInCatalogNotRefreshedOnline
+                : tr(context).sourcePLastSuccessfulRefreshP(
+                    (_catalog!.source).toString(),
+                    (_catalog!.refreshedAt
+                            .toLocal()
+                            .toString()
+                            .split('.')
+                            .first)
+                        .toString(),
+                  ),
           ),
           if (_catalog != null &&
               !_catalog!.models.any((m) => m.id == _model.text.trim()))
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('当前列表未包含此模型，请核对权限或选择其他模型'),
+              child: Text(tr(context).thisModelIsNotInTheCurrent),
             ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text('模型目录不保证账号权限或实时可用性；不会自动换模型或重发聊天。'),
+            child: Text(tr(context).theCatalogDoesNotGuaranteeAccessOr),
           ),
           if (_provider == null)
             TextField(
@@ -452,9 +501,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 _invalidate();
                 setState(() {});
               },
-              decoration: const InputDecoration(
-                labelText: '同源 HTTPS 模型列表地址（可选）',
-                hintText: '不填写时不会猜测模型列表地址',
+              decoration: InputDecoration(
+                labelText: tr(context).sameOriginHttpsModelListAddressOptional,
+                hintText: tr(context).leaveBlankToAvoidGuessingAModel,
               ),
             ),
           if (_provider != null)
@@ -467,7 +516,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     _provider!.keyUrl,
                     widget.linkOpener,
                   ),
-                  child: const Text('获取 API 密钥'),
+                  child: Text(tr(context).getApiKey),
                 ),
                 TextButton(
                   onPressed: () => showAiOfficialLink(
@@ -475,11 +524,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     _provider!.docsUrl,
                     widget.linkOpener,
                   ),
-                  child: const Text('查看模型说明'),
+                  child: Text(tr(context).viewModelDocumentation),
                 ),
               ],
             ),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           TextField(
             controller: _key,
             enabled: !frozen,
@@ -492,15 +541,17 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               setState(() {});
             },
             decoration: InputDecoration(
-              labelText: 'API 密钥',
-              hintText: _hasKey ? '此地址已有密钥；留空保留，更换地址需重填' : '仅存储在本机系统安全存储中',
+              labelText: tr(context).apiKey,
+              hintText: _hasKey
+                  ? tr(context).keySavedForThisAddressLeaveBlank
+                  : tr(context).storedOnlyInThisDeviceSSecure,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('逐步显示回复'),
-            subtitle: const Text('关闭后等待完整回复；不自动切换模式重试'),
+            title: Text(tr(context).streamReplies),
+            subtitle: Text(tr(context).turnOffToWaitForCompleteReplies),
             value: _streaming,
             onChanged: frozen
                 ? null
@@ -511,11 +562,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           ),
           DropdownButtonFormField<String>(
             key: ValueKey(_tokenField),
-            icon: const Icon(LucideIcons.chevronDown, size: 20),
+            icon: Icon(LucideIcons.chevronDown, size: 20),
             initialValue: _tokenField,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: '输出限制参数 · 1536 tokens',
+            decoration: InputDecoration(
+              labelText: tr(context).outputLimitParameterTokens,
             ),
             items: [
               'max_tokens',
@@ -528,11 +579,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     setState(() => _tokenField = v!);
                   },
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           if (_dirty && !_loading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('有未保存修改，请先保存再刷新模型或测试连接。'),
+              child: Text(
+                tr(context).saveChangesBeforeRefreshingModelsOrTesting,
+              ),
             ),
           Wrap(
             spacing: 12,
@@ -540,34 +593,32 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             children: [
               FilledButton(
                 onPressed: actionDisabled ? null : _save,
-                child: const Text('保存配置'),
+                child: Text(tr(context).saveConfiguration),
               ),
               OutlinedButton(
                 onPressed: actionDisabled ? null : _test,
-                child: const Text('测试已保存配置'),
+                child: Text(tr(context).testSavedConfiguration),
               ),
               if (widget.service.busy)
                 TextButton(
                   onPressed: widget.service.stop,
-                  child: const Text('停止请求'),
+                  child: Text(tr(context).stopRequest),
                 ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           Panel(
-            child: const Text(
-              '只有主动操作才联网。首次查询确认接收地址；模型查询只发送认证，不发送账本或聊天。\n\n聊天可能计费，首次发送确认数据范围。API 密钥、加密模型缓存、报告和聊天均不进入账本备份。更换或删除密钥清除模型缓存，不迁移聊天。',
-            ),
+            child: Text(tr(context).networkAccessOccursOnlyAfterAnExplicit),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           TextButton(
             onPressed: actionDisabled
                 ? null
                 : () => _run(() async {
                     if (!await confirm(
                           context,
-                          title: '删除 API 密钥？',
-                          body: '删除密钥及模型缓存，不删除账本或聊天历史。再次分析需要重新填写密钥。',
+                          title: tr(context).deleteApiKey,
+                          body: tr(context).deletesTheKeyAndModelCacheNot,
                         ) ||
                         !mounted) {
                       return;
@@ -577,9 +628,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     _hasKey = false;
                     _key.clear();
                     _catalog = null;
-                    if (context.mounted) message(context, 'API 密钥和模型缓存已删除。');
+                    if (context.mounted) {
+                      message(context, tr(context).apiKeyAndModelCacheDeleted);
+                    }
                   }),
-            child: const Text('删除 API 密钥'),
+            child: Text(tr(context).deleteApiKey115),
           ),
           TextButton(
             onPressed: actionDisabled
@@ -587,9 +640,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 : () => _run(() async {
                     if (!await confirm(
                           context,
-                          title: '清空全部 AI 记录？',
-                          body: '删除本地报告、聊天、快照及模型缓存，不删除账本或 API 密钥，也不删除服务商副本。',
-                          action: '清空记录',
+                          title: tr(context).clearAllAiRecords,
+                          body: tr(context)
+                              .deletesLocalReportsChatsSnapshotsAndModel,
+                          action: tr(context).clearRecords,
                         ) ||
                         !mounted) {
                       return;
@@ -597,9 +651,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     _invalidate();
                     await widget.service.clear();
                     _catalog = null;
-                    if (context.mounted) message(context, '本地 AI 记录已清空。');
+                    if (context.mounted) {
+                      message(context, tr(context).localAiRecordsCleared);
+                    }
                   }),
-            child: const Text('清空全部 AI 记录'),
+            child: Text(tr(context).clearAllAiRecords120),
           ),
         ],
       ),

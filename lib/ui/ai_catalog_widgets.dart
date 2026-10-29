@@ -1,3 +1,6 @@
+import '../l10n/system_messages.dart';
+import '../l10n/localization.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -11,7 +14,7 @@ class AiBrandIcon extends StatelessWidget {
   final String? brand;
   @override
   Widget build(BuildContext context) => brand == null
-      ? const Icon(LucideIcons.messageSquare, size: 24)
+      ? Icon(LucideIcons.messageSquare, size: 24)
       : SvgPicture.asset(
           'assets/ai-icons/$brand.svg',
           width: 24,
@@ -61,29 +64,33 @@ class _AiModelPickerState extends State<AiModelPicker> {
         ),
         child: Column(
           children: [
-            const Text('选择模型', style: TextStyle(fontSize: 20)),
-            const SizedBox(height: 12),
+            Text(tr(context).chooseModel, style: TextStyle(fontSize: 20)),
+            SizedBox(height: 12),
             TextField(
               autocorrect: false,
-              decoration: const InputDecoration(labelText: '搜索模型名称或 ID'),
+              decoration: InputDecoration(
+                labelText: tr(context).searchModelNameOrId,
+              ),
               onChanged: (value) => setState(() => _query = value),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Expanded(
               child: models.isEmpty
-                  ? const Center(child: Text('没有匹配模型，仍可在设置页手动填写。'))
+                  ? Center(
+                      child: Text(tr(context).noMatchingModelYouCanStillEnter),
+                    )
                   : ListView.builder(
                       itemCount: models.length,
                       itemBuilder: (context, index) {
                         final model = models[index];
                         return ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 6,
-                          ),
+                          contentPadding: EdgeInsets.symmetric(vertical: 6),
                           leading: AiBrandIcon(model.brand),
-                          title: Text(model.label),
+                          title: Text(
+                            systemMessage(context, model.label) ?? model.label,
+                          ),
                           subtitle: Text(
-                            '${model.id}\n${model.textChat == true ? '目录注明文本能力 · 实际兼容性需测试' : '兼容性未验证'}',
+                            '${model.id}\n${model.textChat == true ? tr(context).listedAsTextCapableCompatibilityNeedsTesting : tr(context).compatibilityUnverified}',
                           ),
                           isThreeLine: true,
                           onTap: () => Navigator.pop(context, model),
@@ -116,19 +123,21 @@ Future<void> showAiOfficialLink(
   await showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('无法打开系统浏览器'),
-      content: SelectableText('可以复制链接后手动打开：\n$address'),
+      title: Text(tr(context).cannotOpenTheSystemBrowser),
+      content: SelectableText(
+        tr(context).copyThisLinkAndOpenItManually((address).toString()),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(tr(context).close),
         ),
         TextButton(
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: address));
             if (context.mounted) Navigator.pop(context);
           },
-          child: const Text('复制链接'),
+          child: Text(tr(context).copyLink),
         ),
       ],
     ),

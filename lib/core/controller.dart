@@ -120,13 +120,13 @@ class LedgerController extends ChangeNotifier {
     return count;
   }
 
-  Future<bool> backup() async {
+  Future<bool> backup({String dialogTitle = '保存完整备份'}) async {
     if (_busy) return false;
     return _withBusy(() async {
       final data = await store.exportBackup();
       final encoded = await compute(_encode, data);
       final path = await FilePicker.saveFile(
-        dialogTitle: '保存完整备份',
+        dialogTitle: dialogTitle,
         fileName: '简账备份-${dayKey(DateTime.now())}.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -169,7 +169,10 @@ class LedgerController extends ChangeNotifier {
     });
   }
 
-  Future<bool> exportCsv(EntryFilter filter) async {
+  Future<bool> exportCsv(
+    EntryFilter filter, {
+    String dialogTitle = '导出账单',
+  }) async {
     if (_busy) return false;
     return _withBusy(() async {
       final entries = await store.entries(filter, limit: null);
@@ -183,7 +186,7 @@ class LedgerController extends ChangeNotifier {
           .toList();
       final text = await compute(entriesCsv, rows);
       return await FilePicker.saveFile(
-            dialogTitle: '导出账单',
+            dialogTitle: dialogTitle,
             fileName: '简账账单-${dayKey(DateTime.now())}.csv',
             type: FileType.custom,
             allowedExtensions: ['csv'],

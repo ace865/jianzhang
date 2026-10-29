@@ -1,3 +1,9 @@
+import '../l10n/localization.dart';
+import '../l10n/system_messages.dart';
+import '../core/ai_client.dart';
+import '../core/failures.dart';
+export '../core/failures.dart' show LocalizedFailure;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -11,13 +17,41 @@ void message(BuildContext context, String text) {
   }
 }
 
-String errorText(Object error) =>
-    error is FormatException ? error.message : '操作未完成，请重试。原有数据仍保留。';
+String errorText(BuildContext context, Object error) =>
+    (error is LocalizedFailure
+        ? localizedFailure(context, error.code)
+        : error is FormatException
+        ? systemMessage(context, error.message.toString())
+        : error is AiFailure
+        ? systemMessage(context, error.message)
+        : null) ??
+    tr(context).operationFailedPleaseRetryYourExistingData;
+
+String? localizedFailure(BuildContext context, String code) => switch (code) {
+  'youHaveUnsavedChangesSaveTheConfiguration' => tr(
+    context,
+  ).youHaveUnsavedChangesSaveTheConfiguration,
+  'saveTheConfigurationFirst' => tr(context).saveTheConfigurationFirst,
+  'youHaveUnsavedChangesSaveBeforeRefreshing' => tr(
+    context,
+  ).youHaveUnsavedChangesSaveBeforeRefreshing,
+  'saveTheKeyForThisAddressFirst' => tr(context).saveTheKeyForThisAddressFirst,
+  'modelRefreshCancelledThePreviousListIs' => tr(
+    context,
+  ).modelRefreshCancelledThePreviousListIs,
+  'cannotCheckTheLatestLedgerPleaseRetry' => tr(
+    context,
+  ).cannotCheckTheLatestLedgerPleaseRetry,
+  'importFailedYourOriginalLedgerIsUnchanged' => tr(
+    context,
+  ).importFailedYourOriginalLedgerIsUnchanged,
+  _ => null,
+};
 Future<bool> confirm(
   BuildContext context, {
   required String title,
   required String body,
-  String action = '确认',
+  String? action,
 }) async =>
     await showDialog<bool>(
       context: context,
@@ -27,11 +61,11 @@ Future<bool> confirm(
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(tr(context).cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(action),
+            child: Text(action ?? tr(context).confirm),
           ),
         ],
       ),
@@ -80,26 +114,21 @@ class SectionTitle extends StatelessWidget {
       ?trailing,
       if (onTap != null)
         IconButton(
-          tooltip: '查看$text',
+          tooltip: tr(context).viewP((text).toString()),
           onPressed: onTap,
-          icon: const Icon(LucideIcons.chevronRight, size: 18),
+          icon: Icon(LucideIcons.chevronRight, size: 18),
         ),
     ],
   );
 }
 
 class EmptyView extends StatelessWidget {
-  const EmptyView({
-    super.key,
-    this.title = '还没有记录',
-    this.subtitle = '记下第一笔，让每一笔花费都有迹可循。',
-    this.action,
-  });
-  final String title, subtitle;
+  const EmptyView({super.key, this.title, this.subtitle, this.action});
+  final String? title, subtitle;
   final Widget? action;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 14),
+    padding: EdgeInsets.symmetric(vertical: 30, horizontal: 14),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -108,15 +137,18 @@ class EmptyView extends StatelessWidget {
           size: 32,
           color: InkColors.of(context).muted,
         ),
-        const SizedBox(height: 14),
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
+        SizedBox(height: 14),
         Text(
-          subtitle,
+          title ?? tr(context).noEntriesYet,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        SizedBox(height: 8),
+        Text(
+          subtitle ?? tr(context).startWithOneEntryAndKeepTrack,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (action != null) ...[const SizedBox(height: 18), action!],
+        if (action != null) ...[SizedBox(height: 18), action!],
       ],
     ),
   );
@@ -138,13 +170,13 @@ class AsyncContent<T> extends StatelessWidget {
     builder: (context, snapshot) {
       if (snapshot.hasError) {
         return EmptyView(
-          title: '暂时无法读取数据',
-          subtitle: '请重试，账本文件不会被清空。',
-          action: TextButton(onPressed: retry, child: const Text('重试')),
+          title: tr(context).cannotReadDataRightNow,
+          subtitle: tr(context).pleaseRetryYourLedgerFileWillNot,
+          action: TextButton(onPressed: retry, child: Text(tr(context).retry)),
         );
       }
       if (snapshot.connectionState != ConnectionState.done) {
-        return const Padding(
+        return Padding(
           padding: EdgeInsets.all(40),
           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
         );
@@ -160,7 +192,7 @@ class KindSwitch extends StatelessWidget {
   final ValueChanged<EntryKind> onChanged;
   @override
   Widget build(BuildContext context) => ChoiceStrip(
-    labels: const ['支出', '收入'],
+    labels: [tr(context).expenses, tr(context).income],
     index: value.index,
     onChanged: (i) => onChanged(EntryKind.values[i]),
   );
@@ -180,7 +212,7 @@ class ChoiceStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = InkColors.of(context);
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: EdgeInsets.all(3),
       decoration: BoxDecoration(
         border: Border.all(color: ink.border),
         borderRadius: BorderRadius.circular(13),
@@ -197,7 +229,7 @@ class ChoiceStrip extends StatelessWidget {
                 onTap: () => onChanged(i),
                 child: Container(
                   alignment: Alignment.center,
-                  constraints: const BoxConstraints(minHeight: 36),
+                  constraints: BoxConstraints(minHeight: 36),
                   decoration: BoxDecoration(
                     color: index == i ? ink.accent : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
@@ -234,13 +266,13 @@ class WindowPicker extends StatelessWidget {
     final datePicker = Row(
       children: [
         IconButton(
-          tooltip: '上一期',
+          tooltip: tr(context).previousPeriod,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
+          constraints: BoxConstraints(minWidth: 32, minHeight: 48),
           onPressed: window.start.year <= 1900
               ? null
               : () => onChanged(window.shift(-1)),
-          icon: const Icon(LucideIcons.chevronLeft, size: 18),
+          icon: Icon(LucideIcons.chevronLeft, size: 18),
         ),
         Expanded(
           child: TextButton(
@@ -251,14 +283,19 @@ class WindowPicker extends StatelessWidget {
                 initialDate: window.date,
                 firstDate: DateTime(1900),
                 lastDate: DateTime(2100, 12, 31),
-                helpText: '选择${window.period == Period.year ? '年份' : '日期'}',
+                helpText: tr(context).chooseP(
+                  (window.period == Period.year
+                          ? tr(context).year
+                          : tr(context).date)
+                      .toString(),
+                ),
               );
               if (picked != null) {
                 onChanged(PeriodWindow(window.period, picked));
               }
             },
             child: Text(
-              window.label,
+              periodLabel(context, window),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: InkColors.of(context).ink, fontSize: 14),
@@ -266,18 +303,18 @@ class WindowPicker extends StatelessWidget {
           ),
         ),
         IconButton(
-          tooltip: '下一期',
+          tooltip: tr(context).nextPeriod,
           padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 48),
+          constraints: BoxConstraints(minWidth: 32, minHeight: 48),
           onPressed: window.end.year > 2100
               ? null
               : () => onChanged(window.shift(1)),
-          icon: const Icon(LucideIcons.chevronRight, size: 18),
+          icon: Icon(LucideIcons.chevronRight, size: 18),
         ),
       ],
     );
     final periodPicker = ChoiceStrip(
-      labels: const ['日', '月', '年'],
+      labels: [tr(context).day, tr(context).month, tr(context).year156],
       index: window.period.index,
       onChanged: (i) => onChanged(PeriodWindow(Period.values[i], window.date)),
     );
@@ -288,13 +325,13 @@ class WindowPicker extends StatelessWidget {
           return Row(
             children: [
               Expanded(child: datePicker),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               SizedBox(width: 132, child: periodPicker),
             ],
           );
         }
         return Column(
-          children: [datePicker, const SizedBox(height: 4), periodPicker],
+          children: [datePicker, SizedBox(height: 4), periodPicker],
         );
       },
     );
@@ -319,33 +356,32 @@ class EntryTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        padding: EdgeInsets.symmetric(vertical: 14, horizontal: 4),
         child: Row(
           children: [
             Icon(categoryGlyph(category.icon), size: 25, color: ink.ink),
-            const SizedBox(width: 16),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    entry.note.isEmpty ? category.name : entry.note,
+                    entry.note.isEmpty
+                        ? categoryLabel(context, category)
+                        : entry.note,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
-                    '${category.name} · ${entry.payment}',
+                    '${categoryLabel(context, category)} · ${paymentLabel(context, entry.payment)}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Text(
               '${entry.kind == EntryKind.income ? '+' : '−'}${money(entry.cents)}',
               style: TextStyle(
@@ -372,14 +408,14 @@ class BudgetMeter extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${over ? '已超支' : '剩余'} ${money(status.remaining.abs())}',
+          '${over ? tr(context).overBudget : tr(context).remaining} ${money(status.remaining.abs())}',
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: over ? ink.danger : ink.ink,
             fontSize: 17,
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -393,22 +429,27 @@ class BudgetMeter extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               '${(status.ratio * 100).round()}%',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
-        const SizedBox(height: 9),
+        SizedBox(height: 9),
         Text(
-          '已用 ${money(status.spent)} · 预算 ${money(status.limit)}',
+          tr(context).usedPBudgetP(
+            (money(status.spent)).toString(),
+            (money(status.limit)).toString(),
+          ),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         if (status.ratio >= 0.8) ...[
-          const SizedBox(height: 9),
+          SizedBox(height: 9),
           Text(
-            status.ratio >= 1 ? '已达到预算，请留意后续支出' : '预算已使用 80% 以上',
+            status.ratio >= 1
+                ? tr(context).budgetReachedWatchUpcomingExpenses
+                : tr(context).overOfBudgetUsed,
             style: TextStyle(fontSize: 12, color: ink.danger),
           ),
         ],

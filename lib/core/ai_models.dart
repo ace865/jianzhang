@@ -89,6 +89,7 @@ class AiConversation {
     String? id,
     DateTime? createdAt,
     this.promptVersion = aiPromptVersion,
+    this.language = 'zh-Hans',
     List<AiTurn>? turns,
   }) : id = id ?? newId(),
        createdAt = createdAt ?? DateTime.now(),
@@ -98,11 +99,17 @@ class AiConversation {
   final AiSnapshot snapshot;
   final AiConfig config;
   final int promptVersion;
+  final String language;
   final List<AiTurn> turns;
   bool get hasReport =>
       turns.isNotEmpty && turns.first.status == AiTurnStatus.complete;
-  bool matches(AiSnapshot other, AiConfig selected) =>
+  bool matches(
+    AiSnapshot other,
+    AiConfig selected, {
+    String language = 'zh-Hans',
+  }) =>
       hasReport &&
+      this.language == language &&
       snapshot.digest == other.digest &&
       config.endpoint == selected.endpoint &&
       config.model == selected.model &&
@@ -113,6 +120,7 @@ class AiConversation {
     'snapshot': snapshot.toMap(),
     'config': config.toMap(),
     'promptVersion': promptVersion,
+    'language': language,
     'turns': turns.map((t) => t.toMap()).toList(),
   };
   factory AiConversation.fromMap(Map<String, dynamic> map) => AiConversation(
@@ -121,6 +129,11 @@ class AiConversation {
     snapshot: AiSnapshot.fromMap(Map<String, dynamic>.from(map['snapshot'])),
     config: AiConfig.fromMap(Map<String, dynamic>.from(map['config'])),
     promptVersion: map['promptVersion'],
+    language:
+        map['language'] is String &&
+            ['en', 'ja', 'zh-Hans', 'zh-Hant'].contains(map['language'])
+        ? map['language']
+        : 'zh-Hans',
     turns: (map['turns'] as List)
         .map((t) => AiTurn.fromMap(Map<String, dynamic>.from(t)))
         .toList(),
@@ -129,13 +142,22 @@ class AiConversation {
 
 List<Map<String, String>> aiMessages(
   AiConversation conversation,
-  String question,
-) {
+  String question, {
+  String language = 'zh-Hans',
+}) {
   if (question.trim().isEmpty || question.runes.length > aiInputLimit) {
     throw const FormatException('请输入问题，最多 2000 字。');
   }
   final messages = <Map<String, String>>[
-    {'role': 'system', 'content': aiSystemPrompt},
+    {
+      'role': 'system',
+      'content': aiSystemPrompt.replaceFirst('用简洁中文回答', switch (language) {
+        'en' => 'Answer concisely in English',
+        'ja' => '日本語で簡潔に回答してください',
+        'zh-Hant' => '使用臺灣常用的繁體中文簡潔回答',
+        _ => '用简洁中文回答',
+      }),
+    },
     {
       'role': 'user',
       'content': '以下是本地统计快照，请只按此数据分析：\n${conversation.snapshot.text}',

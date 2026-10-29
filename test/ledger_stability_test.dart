@@ -81,7 +81,7 @@ void main() {
         EntryFilter(start: DateTime(2026, 12, 31), end: DateTime(2027, 1, 3)),
         dark,
       );
-      expect(find.text('2026-12-31 — 2027-01-02'), findsOneWidget);
+      expect(find.text('2026年12月31日 — 2027年1月2日'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
     testWidgets('income day totals and actionable empty state dark=$dark', (

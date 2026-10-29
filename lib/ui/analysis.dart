@@ -1,3 +1,5 @@
+import '../l10n/localization.dart';
+
 import 'package:flutter/material.dart';
 
 import '../core/controller.dart';
@@ -74,11 +76,14 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget build(BuildContext context) {
     final ink = InkColors.of(context);
     return ListView(
-      key: const PageStorageKey('analysis'),
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 104),
+      key: PageStorageKey('analysis'),
+      padding: EdgeInsets.fromLTRB(20, 18, 20, 104),
       children: [
-        Text('收支分析', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 12),
+        Text(
+          tr(context).incomeAndExpenseAnalysis,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        SizedBox(height: 12),
         WindowPicker(
           window: _window,
           onChanged: (value) => setState(() {
@@ -86,7 +91,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             _reload();
           }),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         KindSwitch(
           value: _kind,
           onChanged: (value) => setState(() {
@@ -94,17 +99,23 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             _reload();
           }),
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionTitle('AI 分析'),
-              const SizedBox(height: 8),
+              SectionTitle(tr(context).aiAnalysis),
+              SizedBox(height: 8),
               Text(
-                '${_window.label} · ${_kind == EntryKind.expense ? '支出' : '收入'}解读；只发送汇总，可查看发送内容',
+                tr(context).pPAnalysisSummariesOnlyWithA(
+                  (periodLabel(context, _window)).toString(),
+                  (_kind == EntryKind.expense
+                          ? tr(context).expenses
+                          : tr(context).income)
+                      .toString(),
+                ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               TextButton(
                 onPressed: () => Navigator.push(
                   context,
@@ -116,12 +127,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     ),
                   ),
                 ),
-                child: const Text('查看 / 生成分析'),
+                child: Text(tr(context).viewGenerateAnalysis),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         AsyncContent(
           future: _future,
           retry: () => setState(_reload),
@@ -133,9 +144,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: Column(
                     children: [
                       SectionTitle(
-                        '分类占比',
+                        tr(context).categoryBreakdown,
                         trailing: Text(
-                          _window.label,
+                          periodLabel(context, _window),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
@@ -155,7 +166,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                         return InkWell(
                           onTap: () => _openCategory(item.categoryId),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: EdgeInsets.symmetric(vertical: 12),
                             child: Row(
                               children: [
                                 Container(
@@ -167,15 +178,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                     shape: BoxShape.circle,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(category.name),
+                                      Text(categoryLabel(context, category)),
                                       Text(
-                                        '${item.count} 笔',
+                                        tr(context).pEntries(item.count),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall,
@@ -185,11 +196,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                                 ),
                                 Text(
                                   money(item.cents),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w500),
                                 ),
-                                const SizedBox(width: 15),
+                                SizedBox(width: 15),
                                 SizedBox(
                                   width: 42,
                                   child: Text(
@@ -209,36 +218,36 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   ),
                 ),
                 if (_window.period != Period.day) ...[
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                   Panel(
                     child: Column(
                       children: [
                         SectionTitle(
                           _window.period == Period.year
-                              ? '年度收支对比'
+                              ? tr(context).annualIncomeAndExpenses
                               : _kind == EntryKind.expense
-                              ? '月度支出趋势'
-                              : '月度收入趋势',
+                              ? tr(context).monthlyExpenseTrend
+                              : tr(context).monthlyIncomeTrend,
                           trailing: Text(
-                            _window.label,
+                            periodLabel(context, _window),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
                         if (_window.period == Period.year)
                           Padding(
-                            padding: const EdgeInsets.only(top: 10),
+                            padding: EdgeInsets.only(top: 10),
                             child: Row(
                               children: [
                                 Text(
-                                  '● 收入',
+                                  tr(context).income131,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: ink.income,
                                   ),
                                 ),
-                                const SizedBox(width: 18),
+                                SizedBox(width: 18),
                                 Text(
-                                  '● 支出',
+                                  tr(context).expenses132,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: ink.accent,
