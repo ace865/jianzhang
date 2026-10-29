@@ -1,3 +1,5 @@
+import '../l10n/localization.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -24,10 +26,23 @@ class LedgerScreenState extends State<LedgerScreen> {
   Timer? _debounce;
   List<LedgerEntry> _entries = [];
   Map<String, Totals> _daily = {};
-  Totals _totals = const Totals();
+  Totals _totals = Totals();
   bool _loading = true, _more = false, _calendar = false;
-  String? _error;
+  Object? _error;
   int _generation = 0, _revision = -1;
+  String? _language;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final language = tr(context).localeName;
+    if (_language != null &&
+        _language != language &&
+        _filter.search.trim().isNotEmpty) {
+      _reload();
+    }
+    _language = language;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +90,11 @@ class LedgerScreenState extends State<LedgerScreen> {
   }
 
   Future<void> _reload() async {
+    _filter = localizedSearchFilter(
+      _filter,
+      widget.controller.categories,
+      lookupAppLocalizations(LanguageSettings.instance.locale),
+    );
     _revision = widget.controller.revision;
     final generation = ++_generation;
     final filter = _filter;
@@ -101,7 +121,7 @@ class LedgerScreenState extends State<LedgerScreen> {
     } catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
-          _error = errorText(error);
+          _error = error;
           _loading = false;
         });
       }
@@ -120,7 +140,7 @@ class LedgerScreenState extends State<LedgerScreen> {
         setState(() => _entries.addAll(next));
       }
     } catch (error) {
-      if (mounted) message(context, errorText(error));
+      if (mounted) message(context, errorText(context, error));
     } finally {
       if (mounted && generation == _generation) setState(() => _more = false);
     }
@@ -160,15 +180,15 @@ class LedgerScreenState extends State<LedgerScreen> {
   String get _rangeLabel {
     final start = _filter.start;
     final end = _filter.end;
-    if (start == null || end == null) return '全部日期';
+    if (start == null || end == null) return tr(context).allDates;
     if (start.day == 1 && end == DateTime(start.year, start.month + 1)) {
-      return '${start.year}年${start.month}月';
+      return dateLabel(context, start, month: true);
     }
     final lastDay = DateTime(end.year, end.month, end.day - 1);
     if (dayKey(start) == dayKey(lastDay)) {
-      return '${start.year}年${start.month}月${start.day}日';
+      return dateLabel(context, start);
     }
-    return '${dayKey(start)} — ${dayKey(lastDay)}';
+    return '${dateLabel(context, start)} — ${dateLabel(context, lastDay)}';
   }
 
   Future<void> _pickRange() async {
@@ -186,8 +206,8 @@ class LedgerScreenState extends State<LedgerScreen> {
                 _filter.end!.day - 1,
               ),
       ),
-      helpText: '筛选账单日期',
-      saveText: '应用',
+      helpText: tr(context).filterEntryDates,
+      saveText: tr(context).apply,
     );
     if (range != null) {
       _filters(
@@ -223,10 +243,10 @@ class LedgerScreenState extends State<LedgerScreen> {
     }
     return CustomScrollView(
       controller: _scroll,
-      key: const PageStorageKey('ledger'),
+      key: PageStorageKey('ledger'),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
           sliver: SliverToBoxAdapter(
             child: Column(
               children: [
@@ -234,45 +254,47 @@ class LedgerScreenState extends State<LedgerScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        '账单',
+                        tr(context).entries,
                         style: Theme.of(context).textTheme.headlineMedium,
                       ),
                     ),
                     IconButton(
-                      tooltip: '导出筛选账单',
+                      tooltip: tr(context).exportFilteredEntries,
                       onPressed: widget.controller.busy
                           ? null
                           : () async {
                               try {
                                 final saved = await widget.controller.exportCsv(
                                   _filter,
+                                  dialogTitle: tr(context)
+                                      .exportFilteredEntries,
                                 );
                                 if (saved && context.mounted) {
-                                  message(context, '账单已导出');
+                                  message(context, tr(context).entriesExported);
                                 }
                               } catch (error) {
                                 if (context.mounted) {
-                                  message(context, errorText(error));
+                                  message(context, errorText(context, error));
                                 }
                               }
                             },
-                      icon: const Icon(LucideIcons.download, size: 21),
+                      icon: Icon(LucideIcons.download, size: 21),
                     ),
                     IconButton(
-                      tooltip: '选择日期范围',
+                      tooltip: tr(context).chooseDateRange,
                       onPressed: _pickRange,
-                      icon: const Icon(LucideIcons.calendarDays, size: 21),
+                      icon: Icon(LucideIcons.calendarDays, size: 21),
                     ),
                   ],
                 ),
                 Row(
                   children: [
                     IconButton(
-                      tooltip: '上个月',
+                      tooltip: tr(context).previousMonth,
                       onPressed: (_filter.start?.year ?? 2000) <= 1900
                           ? null
                           : () => _shift(-1),
-                      icon: const Icon(LucideIcons.chevronLeft, size: 18),
+                      icon: Icon(LucideIcons.chevronLeft, size: 18),
                     ),
                     Expanded(
                       child: TextButton(
@@ -286,34 +308,34 @@ class LedgerScreenState extends State<LedgerScreen> {
                       ),
                     ),
                     IconButton(
-                      tooltip: '下个月',
+                      tooltip: tr(context).nextMonth,
                       onPressed: (_filter.start?.year ?? 2000) >= 2100
                           ? null
                           : () => _shift(1),
-                      icon: const Icon(LucideIcons.chevronRight, size: 18),
+                      icon: Icon(LucideIcons.chevronRight, size: 18),
                     ),
                   ],
                 ),
                 ChoiceStrip(
-                  labels: const ['列表', '日历'],
+                  labels: [tr(context).list, tr(context).calendar],
                   index: _calendar ? 1 : 0,
                   onChanged: (i) => setState(() => _calendar = i == 1),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 TextField(
                   controller: _search,
                   decoration: InputDecoration(
-                    hintText: '搜索备注或分类',
-                    prefixIcon: const Icon(LucideIcons.search, size: 18),
+                    hintText: tr(context).searchNotesOrCategories,
+                    prefixIcon: Icon(LucideIcons.search, size: 18),
                     suffixIcon: _search.text.isNotEmpty
                         ? IconButton(
-                            tooltip: '清除搜索',
+                            tooltip: tr(context).clearSearch,
                             onPressed: () {
                               _debounce?.cancel();
                               _search.clear();
                               _filters(search: '');
                             },
-                            icon: const Icon(LucideIcons.x, size: 18),
+                            icon: Icon(LucideIcons.x, size: 18),
                           )
                         : null,
                   ),
@@ -321,12 +343,12 @@ class LedgerScreenState extends State<LedgerScreen> {
                     setState(() {});
                     _debounce?.cancel();
                     _debounce = Timer(
-                      const Duration(milliseconds: 250),
+                      Duration(milliseconds: 250),
                       () => _filters(search: value),
                     );
                   },
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -334,22 +356,22 @@ class LedgerScreenState extends State<LedgerScreen> {
                       _chip<String>(
                         context,
                         _filter.kind == null
-                            ? '全部类型'
+                            ? tr(context).allTypes
                             : _filter.kind == EntryKind.expense
-                            ? '支出'
-                            : '收入',
+                            ? tr(context).expenses
+                            : tr(context).income,
                         [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'all',
-                            child: Text('全部类型'),
+                            child: Text(tr(context).allTypes),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'expense',
-                            child: Text('支出'),
+                            child: Text(tr(context).expenses),
                           ),
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'income',
-                            child: Text('收入'),
+                            child: Text(tr(context).income),
                           ),
                         ],
                         (value) => _filters(
@@ -360,18 +382,18 @@ class LedgerScreenState extends State<LedgerScreen> {
                           clearCategory: true,
                         ),
                       ),
-                      const SizedBox(width: 7),
+                      SizedBox(width: 7),
                       _chip<String>(
                         context,
                         _filter.categoryId == null
-                            ? '全部分类'
+                            ? tr(context).allCategories
                             : widget.controller
                                   .category(_filter.categoryId!)
                                   .name,
                         [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'all',
-                            child: Text('全部分类'),
+                            child: Text(tr(context).allCategories),
                           ),
                           ...widget.controller.categories
                               .where(
@@ -383,7 +405,7 @@ class LedgerScreenState extends State<LedgerScreen> {
                                 (c) => PopupMenuItem(
                                   value: c.id,
                                   child: Text(
-                                    '${c.name}${c.active ? '' : '（已停用）'}',
+                                    '${c.name}${c.active ? '' : tr(context).disabled}',
                                   ),
                                 ),
                               ),
@@ -393,17 +415,22 @@ class LedgerScreenState extends State<LedgerScreen> {
                           clearCategory: value == 'all',
                         ),
                       ),
-                      const SizedBox(width: 7),
+                      SizedBox(width: 7),
                       _chip<String>(
                         context,
-                        _filter.payment ?? '支付方式',
+                        _filter.payment == null
+                            ? tr(context).paymentMethod
+                            : paymentLabel(context, _filter.payment!),
                         [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'all',
-                            child: Text('全部支付方式'),
+                            child: Text(tr(context).allPaymentMethods),
                           ),
                           ...paymentMethods.map(
-                            (p) => PopupMenuItem(value: p, child: Text(p)),
+                            (p) => PopupMenuItem(
+                              value: p,
+                              child: Text(paymentLabel(context, p)),
+                            ),
                           ),
                         ],
                         (value) => _filters(
@@ -414,9 +441,9 @@ class LedgerScreenState extends State<LedgerScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 Panel(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(14),
                   child: Row(
                     children: [
                       Expanded(
@@ -424,10 +451,10 @@ class LedgerScreenState extends State<LedgerScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '收入',
+                              tr(context).income,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            const SizedBox(height: 5),
+                            SizedBox(height: 5),
                             FittedBox(
                               child: Text(
                                 money(_totals.income),
@@ -446,14 +473,14 @@ class LedgerScreenState extends State<LedgerScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '支出',
+                              tr(context).expenses,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
-                            const SizedBox(height: 5),
+                            SizedBox(height: 5),
                             FittedBox(
                               child: Text(
                                 money(_totals.expense),
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 18,
                                 ),
@@ -465,13 +492,13 @@ class LedgerScreenState extends State<LedgerScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
               ],
             ),
           ),
         ),
         if (_loading)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.all(40),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
@@ -480,40 +507,43 @@ class LedgerScreenState extends State<LedgerScreen> {
         else if (_error != null)
           SliverToBoxAdapter(
             child: EmptyView(
-              title: '读取账单失败',
-              subtitle: _error!,
-              action: TextButton(onPressed: _reload, child: const Text('重试')),
+              title: tr(context).failedToReadEntries,
+              subtitle: errorText(context, _error!),
+              action: TextButton(
+                onPressed: _reload,
+                child: Text(tr(context).retry),
+              ),
             ),
           )
         else if (_calendar)
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverToBoxAdapter(child: _buildCalendar(context)),
           )
         else if (rows.isEmpty)
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: EmptyView(
-              title: '没有符合条件的账单',
-              subtitle: '试着调整筛选条件，或返回总览记一笔。',
+              title: tr(context).noMatchingEntries,
+              subtitle: tr(context).adjustTheFiltersOrReturnToOverview,
             ),
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverList.builder(
               itemCount: rows.length,
               itemBuilder: (context, index) {
                 final row = rows[index];
                 if (row is String) {
-                  final total = _daily[row] ?? const Totals();
+                  final total = _daily[row] ?? Totals();
                   return Padding(
-                    padding: const EdgeInsets.only(top: 18, bottom: 8),
+                    padding: EdgeInsets.only(top: 18, bottom: 8),
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
-                            row,
-                            style: const TextStyle(
+                            dateLabel(context, DateTime.parse(row)),
+                            style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -522,10 +552,16 @@ class LedgerScreenState extends State<LedgerScreen> {
                         Flexible(
                           child: Text(
                             _filter.kind == EntryKind.income
-                                ? '收入 ${money(total.income)}'
+                                ? tr(context)
+                                      .incomeP((money(total.income)).toString())
                                 : _filter.kind == EntryKind.expense
-                                ? '支出 ${money(total.expense)}'
-                                : '收入 ${money(total.income)} · 支出 ${money(total.expense)}',
+                                ? tr(
+                                    context,
+                                  ).expensesP((money(total.expense)).toString())
+                                : tr(context).incomePExpensesP(
+                                    (money(total.income)).toString(),
+                                    (money(total.expense)).toString(),
+                                  ),
                             style: Theme.of(context).textTheme.bodySmall,
                             textAlign: TextAlign.end,
                           ),
@@ -542,7 +578,7 @@ class LedgerScreenState extends State<LedgerScreen> {
                     ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 10),
                     child: EntryTile(
                       entry: row as LedgerEntry,
                       controller: widget.controller,
@@ -560,16 +596,21 @@ class LedgerScreenState extends State<LedgerScreen> {
         if (!_calendar && !_loading && _entries.length < _totals.count)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: TextButton(
                 onPressed: _more ? null : _loadMore,
                 child: Text(
-                  _more ? '正在加载…' : '加载更多（${_entries.length}/${_totals.count}）',
+                  _more
+                      ? tr(context).loading
+                      : tr(context).loadMorePP(
+                          (_entries.length).toString(),
+                          (_totals.count).toString(),
+                        ),
                 ),
               ),
             ),
           ),
-        const SliverToBoxAdapter(child: SizedBox(height: 110)),
+        SliverToBoxAdapter(child: SizedBox(height: 110)),
       ],
     );
   }
@@ -583,16 +624,16 @@ class LedgerScreenState extends State<LedgerScreen> {
     onSelected: choose,
     itemBuilder: (_) => options,
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
+      padding: EdgeInsets.symmetric(horizontal: 11, vertical: 11),
       decoration: BoxDecoration(
         border: Border.all(color: InkColors.of(context).border),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 12)),
-          const SizedBox(width: 6),
-          const Icon(LucideIcons.chevronDown, size: 13),
+          Text(label, style: TextStyle(fontSize: 12)),
+          SizedBox(width: 6),
+          Icon(LucideIcons.chevronDown, size: 13),
         ],
       ),
     ),
@@ -608,29 +649,38 @@ class LedgerScreenState extends State<LedgerScreen> {
           child: Column(
             children: [
               Text(
-                '${month.year}年${month.month}月',
+                dateLabel(context, month, month: true),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
-                children: ['一', '二', '三', '四', '五', '六', '日']
-                    .map(
-                      (d) => Expanded(
-                        child: Center(
-                          child: Text(
-                            d,
-                            style: Theme.of(context).textTheme.bodySmall,
+                children:
+                    [
+                          tr(context).mon,
+                          tr(context).tue,
+                          tr(context).wed,
+                          tr(context).thu,
+                          tr(context).fri,
+                          tr(context).sat,
+                          tr(context).sun,
+                        ]
+                        .map(
+                          (d) => Expanded(
+                            child: Center(
+                              child: Text(
+                                d,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    )
-                    .toList(),
+                        )
+                        .toList(),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               GridView.builder(
                 shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                physics: NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 7,
                   mainAxisExtent: 61,
                 ),
@@ -638,7 +688,7 @@ class LedgerScreenState extends State<LedgerScreen> {
                 itemBuilder: (context, index) {
                   final number = index - offset + 1;
                   if (number < 1 || number > length) {
-                    return const SizedBox.shrink();
+                    return SizedBox.shrink();
                   }
                   final date = DateTime(month.year, month.month, number),
                       day = _daily[dayKey(date)];
@@ -658,7 +708,7 @@ class LedgerScreenState extends State<LedgerScreen> {
                                 : FontWeight.normal,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        SizedBox(height: 5),
                         if (day != null)
                           FittedBox(
                             child: Text(
@@ -674,7 +724,7 @@ class LedgerScreenState extends State<LedgerScreen> {
                             ),
                           )
                         else
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                       ],
                     ),
                   );
@@ -683,9 +733,9 @@ class LedgerScreenState extends State<LedgerScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         Text(
-          '点击日期查看账单，或写一段当天的小记。\n金额遵循当前筛选条件。',
+          tr(context).tapADateToViewEntriesOr,
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
@@ -739,6 +789,7 @@ class _DaySheetState extends State<DaySheet> {
         categoryId: widget.filter.categoryId,
         payment: widget.filter.payment,
         search: widget.filter.search,
+        searchCategoryIds: widget.filter.searchCategoryIds,
       ),
       limit: null,
     );
@@ -758,18 +809,18 @@ class _DaySheetState extends State<DaySheet> {
       child: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(22, 0, 22, 20),
+          padding: EdgeInsets.fromLTRB(22, 0, 22, 20),
           children: [
             Row(
               children: [
                 Expanded(
                   child: Text(
-                    dayKey(widget.date),
+                    dateLabel(context, widget.date),
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
                 IconButton(
-                  tooltip: '为这一天记账',
+                  tooltip: tr(context).addAnEntryForThisDay,
                   onPressed: () async {
                     await showEntryEditor(
                       context,
@@ -782,7 +833,7 @@ class _DaySheetState extends State<DaySheet> {
                       });
                     }
                   },
-                  icon: const Icon(LucideIcons.plus),
+                  icon: Icon(LucideIcons.plus),
                 ),
               ],
             ),
@@ -794,9 +845,9 @@ class _DaySheetState extends State<DaySheet> {
               builder: (entries) => Column(
                 children: [
                   if (entries.isEmpty)
-                    const EmptyView(
-                      title: '这一天还没有符合条件的账单',
-                      subtitle: '可以补记账单，也可以留下小记。',
+                    EmptyView(
+                      title: tr(context).noMatchingEntriesForThisDay,
+                      subtitle: tr(context).addAnEntryOrLeaveADaily,
                     )
                   else
                     ...entries.map(
@@ -817,18 +868,18 @@ class _DaySheetState extends State<DaySheet> {
                         },
                       ),
                     ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   TextField(
                     controller: _note,
                     minLines: 3,
                     maxLines: 6,
                     maxLength: 2000,
-                    decoration: const InputDecoration(
-                      labelText: '每日小记',
-                      hintText: '今天有哪些值得记下的事情？',
+                    decoration: InputDecoration(
+                      labelText: tr(context).dailyNote,
+                      hintText: tr(context).whatWouldYouLikeToRememberAbout,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -843,17 +894,21 @@ class _DaySheetState extends State<DaySheet> {
                                 );
                                 if (context.mounted) {
                                   FocusScope.of(context).unfocus();
-                                  message(context, '小记已保存');
+                                  message(context, tr(context).dailyNoteSaved);
                                 }
                               } catch (error) {
                                 if (context.mounted) {
-                                  message(context, errorText(error));
+                                  message(context, errorText(context, error));
                                 }
                               } finally {
                                 if (mounted) setState(() => _saving = false);
                               }
                             },
-                      child: Text(_saving ? '保存中…' : '保存小记'),
+                      child: Text(
+                        _saving
+                            ? tr(context).saving
+                            : tr(context).saveDailyNote,
+                      ),
                     ),
                   ),
                 ],

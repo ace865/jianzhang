@@ -235,13 +235,15 @@ void main() {
         config.endpoint,
       );
       await settle(tester);
-      expect(find.text('模拟密钥读取失败'), findsOneWidget);
+      expect(find.text('操作未完成，请重试。原有数据仍保留。'), findsOneWidget);
+      expect(find.text('模拟密钥读取失败'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.tap(find.byType(DropdownButtonFormField<String>).first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('DeepSeek').last);
       await settle(tester);
-      expect(find.text('模拟密钥读取失败'), findsOneWidget);
+      expect(find.text('操作未完成，请重试。原有数据仍保留。'), findsOneWidget);
+      expect(find.text('模拟密钥读取失败'), findsNothing);
       expect(tester.takeException(), isNull);
       expect(client.calls, 0);
       await tester.pumpWidget(const SizedBox());
@@ -433,7 +435,8 @@ void main() {
       catalog.fail = true;
       await tap(tester, '刷新模型列表');
       expect(catalog.calls, 2);
-      expect(find.text('样例查询失败，原列表已保留。'), findsOneWidget);
+      expect(find.text('操作未完成，请重试。原有数据仍保留。'), findsOneWidget);
+      expect(find.text('样例查询失败，原列表已保留。'), findsNothing);
       expect(
         (await tester.runAsync(
           () => service.storage.catalog(selected.endpoint),

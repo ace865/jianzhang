@@ -1,3 +1,5 @@
+import '../l10n/localization.dart';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -74,25 +76,29 @@ class _OverviewScreenState extends State<OverviewScreen> {
   Widget build(BuildContext context) {
     final ink = InkColors.of(context);
     return ListView(
-      key: const PageStorageKey('overview'),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 104),
+      key: PageStorageKey('overview'),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 104),
       children: [
         Row(
           children: [
             Expanded(
               child: Text(
-                '简账',
+                tr(context).message,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
             ),
             IconButton(
-              key: const ValueKey('theme-toggle'),
-              tooltip: widget.controller.dark ? '切换到浅色主题' : '切换到深色主题',
+              key: ValueKey('theme-toggle'),
+              tooltip: widget.controller.dark
+                  ? tr(context).switchToLightTheme
+                  : tr(context).switchToDarkTheme,
               onPressed: () async {
                 try {
                   await widget.controller.toggleTheme();
                 } catch (error) {
-                  if (context.mounted) message(context, errorText(error));
+                  if (context.mounted) {
+                    message(context, errorText(context, error));
+                  }
                 }
               },
               icon: Icon(
@@ -109,7 +115,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
             _reload();
           }),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         AsyncContent(
           future: _future,
           retry: () => setState(_reload),
@@ -125,37 +131,39 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_window.shortLabel}支出',
+                        tr(context).pExpenses(
+                          (shortPeriodLabel(context, _window)).toString(),
+                        ),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
                           money(data.totals.expense),
-                          key: const ValueKey('overview-expense'),
+                          key: ValueKey('overview-expense'),
                           style: Theme.of(context).textTheme.headlineLarge,
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      const Divider(),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
+                      Divider(),
+                      SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(
                             child: _metric(
                               context,
-                              '收入',
+                              tr(context).income,
                               data.totals.income,
                               ink.income,
                             ),
                           ),
                           Container(width: 1, height: 38, color: ink.border),
-                          const SizedBox(width: 20),
+                          SizedBox(width: 20),
                           Expanded(
                             child: _metric(
                               context,
-                              '结余',
+                              tr(context).balance,
                               data.totals.balance,
                               ink.ink,
                             ),
@@ -165,7 +173,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 if (_window.period == Period.month) ...[
                   Panel(
                     onTap: () => Navigator.push(
@@ -184,7 +192,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                '月度预算',
+                                tr(context).monthlyBudget,
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                             ),
@@ -195,27 +203,29 @@ class _OverviewScreenState extends State<OverviewScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14),
                         if (totalBudget != null)
                           BudgetMeter(status: totalBudget)
                         else
                           Text(
-                            '设置预算，让花费更有分寸',
+                            tr(context).setABudgetToPlanYourSpending,
                             style: TextStyle(color: ink.muted),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                 ],
                 if (_window.period != Period.day) ...[
                   Panel(
                     child: Column(
                       children: [
                         SectionTitle(
-                          _window.period == Period.year ? '年度收支' : '支出趋势',
+                          _window.period == Period.year
+                              ? tr(context).annualIncomeAndExpenses227
+                              : tr(context).expenseTrend,
                           trailing: Text(
-                            _window.label,
+                            periodLabel(context, _window),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
@@ -251,13 +261,13 @@ class _OverviewScreenState extends State<OverviewScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                 ],
                 Panel(
                   child: Column(
                     children: [
                       SectionTitle(
-                        '最近账单',
+                        tr(context).recentEntries,
                         onTap: () => widget.openLedger(
                           EntryFilter(start: _window.start, end: _window.end),
                         ),
@@ -272,7 +282,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
                                   ? _window.date
                                   : null,
                             ),
-                            child: const Text('记下第一笔'),
+                            child: Text(tr(context).addYourFirstEntry),
                           ),
                         )
                       else
@@ -303,7 +313,7 @@ class _OverviewScreenState extends State<OverviewScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 5),
+          SizedBox(height: 5),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(

@@ -1,3 +1,6 @@
+import '../l10n/system_messages.dart';
+import '../l10n/localization.dart';
+
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -45,7 +48,7 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
   int _generation = 0;
   Isolate? _worker;
   ReceivePort? _port;
-  String? _error;
+  Object? _error;
   ImportResult? _result;
   @override
   void initState() {
@@ -106,7 +109,7 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
         _worker?.kill();
         return;
       }
-      final parsed = await response.timeout(const Duration(seconds: 60));
+      final parsed = await response.timeout(Duration(seconds: 60));
       if (parsed is String) throw FormatException(parsed);
       final items = await widget.controller.store.previewWechat(
         parsed as List<WechatRow>,
@@ -114,11 +117,7 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
       if (mounted && generation == _generation) setState(() => _items = items);
     } catch (error) {
       if (mounted && generation == _generation) {
-        setState(
-          () => _error = error is FormatException
-              ? error.message.toString()
-              : '读取失败，请检查文件并重试',
-        );
+        setState(() => _error = error);
       }
     } finally {
       if (generation == _generation) {
@@ -144,25 +143,38 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
             category = cats.isEmpty ? '' : cats.first.id;
           }
           return AlertDialog(
-            title: Text(item.needsConfirmation ? '确认这笔交易的含义' : '调整分类'),
+            title: Text(
+              item.needsConfirmation
+                  ? tr(context).confirmWhatThisTransactionMeans
+                  : tr(context).adjustCategory,
+            ),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     item.needsConfirmation
-                        ? '${item.reason}\n退款不会自动抵扣原消费。作为收入或支出导入将影响统计，请确认。'
-                        : '分类建议仅供参考，可以手动调整。',
+                        ? tr(context).pRefundsDoNotAutomaticallyOffsetThe(
+                            (systemMessage(context, item.reason) ??
+                                tr(context).needsConfirmation),
+                          )
+                        : tr(context).categorySuggestionsAreForReferenceAndCan,
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   DropdownButtonFormField<EntryKind>(
                     initialValue: kind,
-                    decoration: const InputDecoration(labelText: '作为'),
+                    decoration: InputDecoration(
+                      labelText: tr(context).importAs,
+                    ),
                     items: EntryKind.values
                         .map(
                           (k) => DropdownMenuItem(
                             value: k,
-                            child: Text(k == EntryKind.expense ? '支出' : '收入'),
+                            child: Text(
+                              k == EntryKind.expense
+                                  ? tr(context).expenses
+                                  : tr(context).income,
+                            ),
                           ),
                         )
                         .toList(),
@@ -178,12 +190,14 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                 '');
                     }),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     key: ValueKey(kind),
                     initialValue: cats.isEmpty ? null : category,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: '分类'),
+                    decoration: InputDecoration(
+                      labelText: tr(context).category,
+                    ),
                     items: cats
                         .map(
                           (c) => DropdownMenuItem(
@@ -194,20 +208,21 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                         .toList(),
                     onChanged: (value) => category = value!,
                   ),
-                  if (cats.isEmpty) const Text('没有可用分类，请先在分类管理中启用或添加分类。'),
+                  if (cats.isEmpty)
+                    Text(tr(context).noCategoriesAvailableAddOrEnableA),
                 ],
               ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('取消'),
+                child: Text(tr(context).cancel),
               ),
               FilledButton(
                 onPressed: cats.isEmpty
                     ? null
                     : () => Navigator.pop(context, true),
-                child: const Text('确认并选入'),
+                child: Text(tr(context).confirmAndSelect),
               ),
             ],
           );
@@ -228,14 +243,14 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
     final category = await showDialog<Category>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('批量设置已选账单分类'),
+        title: Text(tr(context).setCategoryForSelectedEntries),
         children: widget.controller.categories
             .where((c) => c.active)
             .map(
               (c) => SimpleDialogOption(
                 onPressed: () => Navigator.pop(context, c),
                 child: Text(
-                  '${c.kind == EntryKind.income ? '收入' : '支出'} · ${c.name}',
+                  '${c.kind == EntryKind.income ? tr(context).income : tr(context).expenses} · ${c.name}',
                 ),
               ),
             )
@@ -259,9 +274,9 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
     if (selected == 0) return;
     final yes = await confirm(
       context,
-      title: '导入 $selected 笔微信账单？',
-      body: '将新增选中的账单，不覆盖已有记录。建议先在设置中保存完整备份。',
-      action: '确认导入',
+      title: tr(context).importPWechatEntries((selected).toString()),
+      body: tr(context).addsSelectedEntriesWithoutOverwritingExistingRecords,
+      action: tr(context).confirmImport,
     );
     if (!yes || !mounted) return;
     setState(() {
@@ -277,21 +292,31 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _error = '导入失败，原账本未更改。请重新选择文件预览，检查分类及待确认账单。');
+      if (mounted) {
+        setState(
+          () => _error = const LocalizedFailure(
+            'importFailedYourOriginalLedgerIsUnchanged',
+            '',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   String _status(ImportItem item) => item.needsCategory
-      ? '缺少分类'
+      ? tr(context).missingCategory
       : switch (item.disposition) {
-          ImportDisposition.ready => '可导入',
-          ImportDisposition.review => item.confirmed ? '已确认' : '待确认',
-          ImportDisposition.invalid => '异常',
-          ImportDisposition.excluded => '不入账',
-          ImportDisposition.duplicate => '重复',
-          ImportDisposition.conflict => '冲突',
+          ImportDisposition.ready => tr(context).readyToImport,
+          ImportDisposition.review =>
+            item.confirmed
+                ? tr(context).confirmed
+                : tr(context).needsConfirmation,
+          ImportDisposition.invalid => tr(context).invalid,
+          ImportDisposition.excluded => tr(context).excluded,
+          ImportDisposition.duplicate => tr(context).duplicate,
+          ImportDisposition.conflict => tr(context).conflict,
         };
 
   @override
@@ -308,11 +333,11 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
       canPop: !_saving,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('导入微信账单'),
+          title: Text(tr(context).importWechatStatements),
           leading: IconButton(
-            tooltip: '返回',
+            tooltip: tr(context).back,
             onPressed: _saving ? null : () => Navigator.maybePop(context),
-            icon: const Icon(LucideIcons.chevronLeft),
+            icon: Icon(LucideIcons.chevronLeft),
           ),
         ),
         body: SafeArea(
@@ -326,29 +351,36 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                   ),
                   child: SingleChildScrollView(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            '本机解析 CSV / .xlsx，不上传账单。退款、转账等需单独确认。文件上限 20 MB / 20,000 条。',
-                          ),
-                          const SizedBox(height: 12),
+                          Text(tr(context).csvXlsxIsParsedOnThisDevice),
+                          SizedBox(height: 12),
                           if (_error != null)
                             Text(
-                              _error!,
+                              errorText(context, _error!),
                               style: TextStyle(
                                 color: Theme.of(context).colorScheme.error,
                               ),
                             ),
                           if (_result != null)
                             Text(
-                              '导入完成：成功 ${_result!.inserted} 笔，重复跳过 ${_result!.duplicates} 笔，未选入 ${_result!.unselected} 笔。',
+                              tr(context)
+                                  .importCompletePAddedPDuplicatesSkipped(
+                                    (_result!.inserted).toString(),
+                                    (_result!.duplicates).toString(),
+                                    (_result!.unselected).toString(),
+                                  ),
                             ),
                           if (_reading || _saving) ...[
-                            const LinearProgressIndicator(),
-                            const SizedBox(height: 8),
-                            Text(_saving ? '正在提交，请稍候…' : '正在读取与解析…'),
+                            LinearProgressIndicator(),
+                            SizedBox(height: 8),
+                            Text(
+                              _saving
+                                  ? tr(context).submittingPleaseWait
+                                  : tr(context).readingAndParsing,
+                            ),
                           ],
                           if (_reading)
                             TextButton(
@@ -356,21 +388,75 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                 _cancel();
                                 setState(() => _reading = false);
                               },
-                              child: const Text('取消解析'),
+                              child: Text(tr(context).cancelParsing),
                             ),
                           if (!_reading && !_saving)
                             OutlinedButton(
                               onPressed: _pick,
                               child: Text(
-                                items == null ? '选择微信账单文件' : '重新选择文件',
+                                items == null
+                                    ? tr(context).chooseWechatStatementFile
+                                    : tr(context).chooseAnotherFile,
                               ),
                             ),
                           if (items != null) ...[
                             Text(
-                              '共 ${items.length} 笔 · 可导入 ${items.where((i) => i.disposition == ImportDisposition.ready && !i.needsCategory).length} · 重复 ${items.where((i) => i.disposition == ImportDisposition.duplicate).length}\n待确认 ${items.where((i) => i.disposition == ImportDisposition.review && !i.confirmed).length} · 异常/冲突 ${items.where((i) => i.disposition == ImportDisposition.invalid || i.disposition == ImportDisposition.conflict).length} · 不入账 ${items.where((i) => i.disposition == ImportDisposition.excluded).length}',
+                              tr(context).totalPReadyPDuplicatesPReview(
+                                (items.length).toString(),
+                                (items
+                                        .where(
+                                          (i) =>
+                                              i.disposition ==
+                                                  ImportDisposition.ready &&
+                                              !i.needsCategory,
+                                        )
+                                        .length)
+                                    .toString(),
+                                (items
+                                        .where(
+                                          (i) =>
+                                              i.disposition ==
+                                              ImportDisposition.duplicate,
+                                        )
+                                        .length)
+                                    .toString(),
+                                (items
+                                        .where(
+                                          (i) =>
+                                              i.disposition ==
+                                                  ImportDisposition.review &&
+                                              !i.confirmed,
+                                        )
+                                        .length)
+                                    .toString(),
+                                (items
+                                        .where(
+                                          (i) =>
+                                              i.disposition ==
+                                                  ImportDisposition.invalid ||
+                                              i.disposition ==
+                                                  ImportDisposition.conflict,
+                                        )
+                                        .length)
+                                    .toString(),
+                                (items
+                                        .where(
+                                          (i) =>
+                                              i.disposition ==
+                                              ImportDisposition.excluded,
+                                        )
+                                        .length)
+                                    .toString(),
+                              ),
                             ),
                             Text(
-                              '缺少分类 ${items.where((i) => i.needsCategory).length} 笔 · 已选 ${selected.length} 笔 · 收入 ${money(income)} · 支出 ${money(expense)}',
+                              tr(context).missingCategoryPSelectedPIncomeP(
+                                (items.where((i) => i.needsCategory).length)
+                                    .toString(),
+                                (selected.length).toString(),
+                                (money(income)).toString(),
+                                (money(expense)).toString(),
+                              ),
                             ),
                             Wrap(
                               children: [
@@ -386,7 +472,9 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                                     i.confirmed);
                                           }
                                         }),
-                                  child: const Text('选择可导入账单'),
+                                  child: Text(
+                                    tr(context).selectImportableEntries,
+                                  ),
                                 ),
                                 TextButton(
                                   onPressed: _saving || _reading
@@ -396,11 +484,11 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                             i.selected = false;
                                           }
                                         }),
-                                  child: const Text('全部取消'),
+                                  child: Text(tr(context).deselectAll),
                                 ),
                                 TextButton(
                                   onPressed: _saving || _reading ? null : _bulk,
-                                  child: const Text('批量分类'),
+                                  child: Text(tr(context).bulkCategory),
                                 ),
                               ],
                             ),
@@ -432,29 +520,53 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                                   }
                                 },
                           title: Text(
-                            '${row.date == null ? "无效日期" : dayKey(row.date!)} · ${row.cents == null ? "无效金额" : money(row.cents!)} · ${_status(item)}',
+                            '${row.date == null ? tr(context).invalidDate : dateLabel(context, row.date!)} · ${row.cents == null ? tr(context).invalidAmount : money(row.cents!)} · ${_status(item)}',
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '原文件第 ${row.line} 行 · ${row.cells[1]} · ${row.cells[7]}',
+                                tr(context).sourceRowPPP(
+                                  (row.line).toString(),
+                                  (row.cells[1]).toString(),
+                                  (row.cells[7]).toString(),
+                                ),
                               ),
                               Text(
                                 row.description,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              if (item.reason.isNotEmpty) Text(item.reason),
+                              if (item.reason.isNotEmpty)
+                                Text(
+                                  systemMessage(context, item.reason) ??
+                                      tr(context).needsConfirmation,
+                                ),
                               if (item.needsCategory)
-                                const Text('缺少可用分类，请在分类管理中启用或添加分类后重新预览。'),
+                                Text(
+                                  tr(context).noAvailableCategoryAddOrEnableOne,
+                                ),
                               if (!item.blocked)
                                 TextButton(
                                   onPressed: _saving || _reading
                                       ? null
                                       : () => _edit(item),
                                   child: Text(
-                                    '${item.kind == EntryKind.income ? "收入" : "支出"} · ${item.needsCategory ? "未设置分类" : widget.controller.category(item.categoryId).name} · 调整',
+                                    tr(context).pPAdjust(
+                                      (item.kind == EntryKind.income
+                                              ? tr(context).income
+                                              : tr(context).expenses)
+                                          .toString(),
+                                      (item.needsCategory
+                                              ? tr(context).categoryNotSet
+                                              : categoryLabel(
+                                                  context,
+                                                  widget.controller.category(
+                                                    item.categoryId,
+                                                  ),
+                                                ))
+                                          .toString(),
+                                    ),
                                   ),
                                 ),
                             ],
@@ -465,14 +577,17 @@ class _WechatImportScreenState extends State<WechatImportScreen> {
                   ),
                 if (items != null)
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     child: SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: _saving || _reading || selected.isEmpty
                             ? null
                             : _save,
-                        child: Text('导入 ${selected.length} 笔'),
+                        child: Text(
+                          tr(context)
+                              .importPEntries((selected.length).toString()),
+                        ),
                       ),
                     ),
                   ),

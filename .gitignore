@@ -25,3 +25,5 @@ output/
 *.env
 .env*
 *.hprof
+
+lib/l10n/generated/

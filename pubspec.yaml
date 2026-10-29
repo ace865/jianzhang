@@ -25,12 +25,14 @@ dependencies:
   crypto: ^3.0.7
   flutter_svg: ^2.2.4
   url_launcher: ^6.3.3
+  intl: ^0.20.3
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   sqflite_common_ffi: ^2.3.6
 flutter:
+  generate: true
   config:
     enable-swift-package-manager: false
   uses-material-design: true

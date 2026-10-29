@@ -263,11 +263,15 @@ class EntryFilter {
     this.categoryId,
     this.payment,
     this.search = '',
+    this.searchCategoryIds = const [],
   });
   final DateTime? start, end;
   final EntryKind? kind;
   final String? categoryId, payment;
   final String search;
+
+  /// Transient display-name matches; never stored in the ledger or backups.
+  final List<String> searchCategoryIds;
 }
 
 class Totals {

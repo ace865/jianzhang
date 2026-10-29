@@ -1,8 +1,10 @@
+import 'l10n/localization.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'core/controller.dart';
@@ -14,9 +16,12 @@ import 'ui/ledger.dart';
 import 'ui/overview.dart';
 import 'ui/settings.dart';
 import 'ui/theme.dart';
+import 'ui/common.dart' show errorText;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting();
+  await LanguageSettings.instance.initialize();
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks([
       'Noto Serif SC',
@@ -28,7 +33,7 @@ Future<void> main() async {
     ], await rootBundle.loadString('assets/ai-icons/LICENSE.txt'));
   });
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  runApp(const Startup());
+  runApp(Startup());
 }
 
 class Startup extends StatefulWidget {
@@ -39,7 +44,7 @@ class Startup extends StatefulWidget {
 
 class _StartupState extends State<Startup> {
   LedgerController? _controller;
-  String? _error;
+  Object? _error;
   @override
   void initState() {
     super.initState();
@@ -55,11 +60,7 @@ class _StartupState extends State<Startup> {
       if (mounted) setState(() => _controller = controller);
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = error is FormatException
-              ? error.message
-              : '账本暂时无法打开。请检查设备可用空间后重试，原有账本不会被清空。',
-        );
+        setState(() => _error = error);
       }
     }
   }
@@ -67,33 +68,45 @@ class _StartupState extends State<Startup> {
   @override
   Widget build(BuildContext context) {
     if (_controller != null) return LedgerApp(controller: _controller!);
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ledgerTheme(false),
-      home: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '简账',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 22),
-                  if (_error == null)
-                    const CircularProgressIndicator(strokeWidth: 2)
-                  else ...[
-                    Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: 18),
-                    FilledButton(
-                      onPressed: _initialize,
-                      child: const Text('重试'),
+    return ListenableBuilder(
+      listenable: LanguageSettings.instance,
+      builder: (context, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        locale: LanguageSettings.instance.locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        theme: ledgerTheme(false),
+        home: Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tr(context).message,
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                    SizedBox(height: 22),
+                    if (_error == null)
+                      CircularProgressIndicator(strokeWidth: 2)
+                    else ...[
+                      Text(
+                        errorText(context, _error!),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 18),
+                      FilledButton(
+                        onPressed: _initialize,
+                        child: Text(tr(context).retry),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -108,9 +121,9 @@ class LedgerApp extends StatelessWidget {
   final LedgerController controller;
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: controller,
+    listenable: Listenable.merge([controller, LanguageSettings.instance]),
     builder: (context, _) => MaterialApp(
-      title: '简账',
+      title: tr(context).message,
       debugShowCheckedModeBanner: false,
       theme: ledgerTheme(false),
       darkTheme: ledgerTheme(true),
@@ -118,9 +131,9 @@ class LedgerApp extends StatelessWidget {
       themeAnimationDuration: Duration(
         milliseconds: controller.reducedMotion ? 0 : 180,
       ),
-      locale: const Locale('zh', 'CN'),
-      supportedLocales: const [Locale('zh', 'CN')],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      locale: LanguageSettings.instance.locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: LedgerShell(controller: controller),
     ),
   );
@@ -148,7 +161,7 @@ class _LedgerShellState extends State<LedgerShell>
     super.initState();
     _animation = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 180),
+      duration: Duration(milliseconds: 180),
       value: 1,
     );
     final curve = CurvedAnimation(
@@ -157,7 +170,7 @@ class _LedgerShellState extends State<LedgerShell>
     );
     _fade = Tween<double>(begin: 0.3, end: 1).animate(curve);
     _slide = Tween<Offset>(
-      begin: const Offset(0, 0.015),
+      begin: Offset(0, 0.015),
       end: Offset.zero,
     ).animate(curve);
   }
@@ -209,16 +222,16 @@ class _LedgerShellState extends State<LedgerShell>
               controller: widget.controller,
               initialFilter: _pendingFilter,
             )
-          : const SizedBox.shrink(),
+          : SizedBox.shrink(),
       _visited.contains(2)
           ? AnalysisScreen(
               controller: widget.controller,
               openLedger: _openLedger,
             )
-          : const SizedBox.shrink(),
+          : SizedBox.shrink(),
       _visited.contains(3)
           ? SettingsScreen(controller: widget.controller)
-          : const SizedBox.shrink(),
+          : SizedBox.shrink(),
     ];
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value:
@@ -251,16 +264,16 @@ class _LedgerShellState extends State<LedgerShell>
         floatingActionButton: Visibility(
           visible: _index == 0,
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 0),
+            padding: EdgeInsets.only(bottom: 0),
             child: FilledButton.icon(
-              key: const ValueKey('add-entry'),
+              key: ValueKey('add-entry'),
               onPressed: widget.controller.busy ? null : _editor,
-              icon: const Icon(LucideIcons.plus, size: 18),
-              label: const Text('记一笔'),
+              icon: Icon(LucideIcons.plus, size: 18),
+              label: Text(tr(context).addEntry),
               style: FilledButton.styleFrom(
-                minimumSize: const Size(132, 44),
-                padding: const EdgeInsets.symmetric(horizontal: 25),
-                shape: const StadiumBorder(),
+                minimumSize: Size(132, 44),
+                padding: EdgeInsets.symmetric(horizontal: 25),
+                shape: StadiumBorder(),
               ),
             ),
           ),
@@ -273,10 +286,15 @@ class _LedgerShellState extends State<LedgerShell>
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 4, 10, 2),
+              padding: EdgeInsets.fromLTRB(10, 4, 10, 2),
               child: Row(
                 children: List.generate(4, (i) {
-                  final labels = ['总览', '账单', '分析', '设置'];
+                  final labels = [
+                    tr(context).overview,
+                    tr(context).entries,
+                    tr(context).analysis,
+                    tr(context).settings,
+                  ];
                   final icons = [
                     LucideIcons.house,
                     LucideIcons.receiptText,
@@ -292,7 +310,7 @@ class _LedgerShellState extends State<LedgerShell>
                         borderRadius: BorderRadius.circular(10),
                         onTap: () => _select(i),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: EdgeInsets.symmetric(vertical: 10),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -301,7 +319,7 @@ class _LedgerShellState extends State<LedgerShell>
                                 size: 22,
                                 color: _index == i ? ink.accent : ink.muted,
                               ),
-                              const SizedBox(height: 5),
+                              SizedBox(height: 5),
                               Text(
                                 labels[i],
                                 style: TextStyle(

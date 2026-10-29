@@ -1,3 +1,5 @@
+import 'failures.dart';
+
 import 'dart:convert';
 
 import 'package:path/path.dart' as p;
@@ -249,7 +251,7 @@ class LedgerDatabase {
         !validDay(dayKey(entry.date)) ||
         !paymentMethods.contains(entry.payment) ||
         entry.note.length > 500) {
-      throw const FormatException('请检查金额、日期或备注');
+      throw const LedgerFailure.invalidEntry();
     }
     await db.transaction((txn) async {
       final categories = await txn.query(
@@ -257,7 +259,7 @@ class LedgerDatabase {
         where: 'id=? AND kind=?',
         whereArgs: [entry.categoryId, entry.kind.name],
       );
-      if (categories.isEmpty) throw const FormatException('分类与收支类型不匹配');
+      if (categories.isEmpty) throw const LedgerFailure.categoryMismatch();
       final old = await txn.query(
         'entries',
         columns: ['id', 'category_id'],
@@ -266,7 +268,7 @@ class LedgerDatabase {
       );
       if (categories.first['active'] != 1 &&
           (old.isEmpty || old.first['category_id'] != entry.categoryId)) {
-        throw const FormatException('此分类已停用，请选择其他分类');
+        throw const LedgerFailure.disabledCategory();
       }
       if (old.isEmpty) {
         await txn.insert('entries', entry.toMap());
@@ -304,10 +306,11 @@ class LedgerDatabase {
           .replaceAll('%', '\\%')
           .replaceAll('_', '\\_');
       add(
-        "(note LIKE ? ESCAPE '\\' OR category_id IN (SELECT id FROM categories WHERE name LIKE ? ESCAPE '\\'))",
+        "(note LIKE ? ESCAPE '\\' OR category_id IN (SELECT id FROM categories WHERE name LIKE ? ESCAPE '\\')${filter.searchCategoryIds.isEmpty ? '' : ' OR category_id IN (${List.filled(filter.searchCategoryIds.length, '?').join(',')})'})",
         '%$escaped%',
       );
       args.add('%$escaped%');
+      args.addAll(filter.searchCategoryIds);
     }
     return (clauses.isEmpty ? '1=1' : clauses.join(' AND '), args);
   }
@@ -450,7 +453,9 @@ class LedgerDatabase {
       );
       return;
     }
-    if (cents <= 0 || cents > maxCents) throw const FormatException('预算金额无效');
+    if (cents <= 0 || cents > maxCents) {
+      throw const LedgerFailure.invalidBudget();
+    }
     if (categoryId.isNotEmpty) {
       final rows = await db.query(
         'categories',
@@ -497,7 +502,7 @@ class LedgerDatabase {
       '';
   Future<void> saveNote(DateTime date, String body) async {
     if (!validDay(dayKey(date)) || body.length > 2000) {
-      throw const FormatException('小记内容无效');
+      throw const LedgerFailure.invalidNote();
     }
     if (body.trim().isEmpty) {
       await db.delete('daily_notes', where: 'day=?', whereArgs: [dayKey(date)]);

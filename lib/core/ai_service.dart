@@ -53,11 +53,13 @@ class AiService extends ChangeNotifier {
     _notify();
   }
 
-  AiConversation? cached(AiSnapshot snapshot) {
+  AiConversation? cached(AiSnapshot snapshot, {String language = 'zh-Hans'}) {
     final selected = config;
     if (selected == null) return null;
     for (final conversation in history) {
-      if (conversation.matches(snapshot, selected)) return conversation;
+      if (conversation.matches(snapshot, selected, language: language)) {
+        return conversation;
+      }
     }
     return null;
   }
@@ -66,7 +68,11 @@ class AiService extends ChangeNotifier {
       config?.endpoint == conversation.config.endpoint &&
       config?.model == conversation.config.model;
 
-  Future<void> send(AiConversation conversation, String question) async {
+  Future<void> send(
+    AiConversation conversation,
+    String question, {
+    String language = 'zh-Hans',
+  }) async {
     if (busy) throw const FormatException('当前请求尚未结束。');
     if (persistenceErrors.containsKey(conversation.id)) {
       throw const FormatException('本地记录尚未保存，请先仅重试保存或复制回复，不会自动重发请求。');
@@ -78,7 +84,10 @@ class AiService extends ChangeNotifier {
     if (!conversation.snapshot.available) {
       throw const FormatException('所选期间没有已记录数据，或属于未来期间。');
     }
-    final body = aiRequest(selected, aiMessages(conversation, question));
+    final body = aiRequest(
+      selected,
+      aiMessages(conversation, question, language: language),
+    );
     // Lock before any await to prevent duplicate requests from rapid taps.
     busy = true;
     _stopRequested = false;
@@ -172,12 +181,29 @@ class AiService extends ChangeNotifier {
     }
   }
 
-  Future<String> testConnection() async {
+  Future<String> testConnection({String language = 'zh-Hans'}) async {
     if (busy) throw const FormatException('请等待当前请求结束。');
     final selected = config;
     if (selected == null) throw const FormatException('请先保存接口配置。');
     final body = aiRequest(selected, [
-      {'role': 'user', 'content': '这是接口连接测试，不含账本。请只回复：连接成功。'},
+      {
+        'role': 'system',
+        'content': switch (language) {
+          'en' => 'Reply briefly in English.',
+          'ja' => '日本語で簡潔に回答してください。',
+          'zh-Hant' => '請以繁體中文簡短回答。',
+          _ => '请以简体中文简短回答。',
+        },
+      },
+      {
+        'role': 'user',
+        'content': switch (language) {
+          'en' => 'This is a connection test with no ledger data. Reply only: Connected.',
+          'ja' => 'これは家計簿を含まない接続テストです。「接続成功」とだけ回答してください。',
+          'zh-Hant' => '這是連線測試，不含帳本。請只回覆：連線成功。',
+          _ => '这是接口连接测试，不含账本。请只回复：连接成功。',
+        },
+      },
     ]);
     busy = true;
     _stopRequested = false;

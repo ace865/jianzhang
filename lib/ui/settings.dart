@@ -1,3 +1,5 @@
+import '../l10n/localization.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -14,10 +16,14 @@ class SettingsScreen extends StatelessWidget {
   final LedgerController controller;
   Future<void> _backup(BuildContext context) async {
     try {
-      final saved = await controller.backup();
-      if (saved && context.mounted) message(context, '完整备份已保存');
+      final saved = await controller.backup(
+        dialogTitle: tr(context).fullBackup,
+      );
+      if (saved && context.mounted) {
+        message(context, tr(context).fullBackupSaved);
+      }
     } catch (error) {
-      if (context.mounted) message(context, errorText(error));
+      if (context.mounted) message(context, errorText(context, error));
     }
   }
 
@@ -28,42 +34,46 @@ class SettingsScreen extends StatelessWidget {
       final choice = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('恢复这份备份？'),
+          title: Text(tr(context).restoreThisBackup),
           content: Text(
-            '文件包含 ${(backup['entries'] as List).length} 笔账单。\n\n恢复会替换当前账本中的全部账单、分类、预算、小记和设置，不会合并。建议先保存现有账本的备份。',
+            tr(context).thisFileContainsPEntriesRestoringReplaces(
+              ((backup['entries'] as List).length).toString(),
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, 'cancel'),
-              child: const Text('取消'),
+              child: Text(tr(context).cancel),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, 'backup'),
-              child: const Text('先备份现有账本'),
+              child: Text(tr(context).backUpCurrentLedgerFirst),
             ),
             FilledButton(
               onPressed: () => Navigator.pop(context, 'restore'),
-              child: const Text('替换并恢复'),
+              child: Text(tr(context).replaceAndRestore),
             ),
           ],
         ),
       );
       if (choice == null || choice == 'cancel' || !context.mounted) return;
       if (choice == 'backup') {
-        final saved = await controller.backup();
+        final saved = await controller.backup(
+          dialogTitle: tr(context).fullBackup,
+        );
         if (!saved || !context.mounted) return;
         final proceed = await confirm(
           context,
-          title: '现有账本已备份',
-          body: '现在用选中的备份替换当前账本？',
-          action: '替换并恢复',
+          title: tr(context).currentLedgerBackedUp,
+          body: tr(context).replaceTheCurrentLedgerWithTheSelected,
+          action: tr(context).replaceAndRestore,
         );
         if (!proceed || !context.mounted) return;
       }
       await controller.restore(backup);
-      if (context.mounted) message(context, '账本已恢复');
+      if (context.mounted) message(context, tr(context).ledgerRestored);
     } catch (error) {
-      if (context.mounted) message(context, errorText(error));
+      if (context.mounted) message(context, errorText(context, error));
     }
   }
 
@@ -71,23 +81,75 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ink = InkColors.of(context);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 104),
+      padding: EdgeInsets.fromLTRB(20, 18, 20, 104),
       children: [
-        Text('设置', style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
-        Text('属于你的，安静的收支手账。', style: TextStyle(color: ink.muted)),
-        const SizedBox(height: 24),
+        Text(
+          tr(context).settings,
+          style: Theme.of(context).textTheme.headlineMedium,
+        ),
+        SizedBox(height: 8),
+        Text(
+          tr(context).yourQuietPersonalIncomeAndExpenseJournal,
+          style: TextStyle(color: ink.muted),
+        ),
+        SizedBox(height: 24),
         Panel(
           padding: EdgeInsets.zero,
           child: Column(
             children: [
+              ListTile(
+                leading: const Icon(LucideIcons.languages, size: 23),
+                title: Text(tr(context).language),
+                subtitle: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    key: const ValueKey('language-selector'),
+                    icon: const Icon(LucideIcons.chevronDown, size: 20),
+                    isExpanded: true,
+                    value: LanguageSettings.instance.choice,
+                    items: LanguageSettings.choices
+                        .map(
+                          (choice) => DropdownMenuItem(
+                            value: choice,
+                            child: Text(switch (choice) {
+                              'en' => 'English',
+                              'zh-Hans' => '简体中文',
+                              'zh-Hant' => '繁體中文',
+                              'ja' => '日本語',
+                              _ => tr(context).followSystem,
+                            }),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: controller.busy
+                        ? null
+                        : (value) async {
+                            if (value == null) return;
+                            try {
+                              await LanguageSettings.instance.select(value);
+                            } catch (_) {
+                              if (context.mounted) {
+                                message(
+                                  context,
+                                  tr(context).languageSaveFailed,
+                                );
+                              }
+                            }
+                          },
+                  ),
+                ),
+              ),
+              const Divider(indent: 16, endIndent: 16),
               SwitchListTile(
                 secondary: Icon(
                   controller.dark ? LucideIcons.sun : LucideIcons.moon,
                   size: 23,
                 ),
-                title: const Text('深色主题'),
-                subtitle: Text(controller.dark ? 'C · 深色暖灰' : 'A · 暖白陶土'),
+                title: Text(tr(context).darkTheme),
+                subtitle: Text(
+                  controller.dark
+                      ? tr(context).cWarmDarkGray
+                      : tr(context).aWarmWhiteAndTerracotta,
+                ),
                 value: controller.dark,
                 onChanged: controller.busy
                     ? null
@@ -96,16 +158,16 @@ class SettingsScreen extends StatelessWidget {
                           await controller.toggleTheme();
                         } catch (error) {
                           if (context.mounted) {
-                            message(context, errorText(error));
+                            message(context, errorText(context, error));
                           }
                         }
                       },
               ),
-              const Divider(indent: 16, endIndent: 16),
+              Divider(indent: 16, endIndent: 16),
               SwitchListTile(
-                secondary: const Icon(LucideIcons.zap, size: 23),
-                title: const Text('流畅优先'),
-                subtitle: const Text('减少页面和图表动画'),
+                secondary: Icon(LucideIcons.zap, size: 23),
+                title: Text(tr(context).reduceMotion),
+                subtitle: Text(tr(context).reducePageAndChartAnimations),
                 value: controller.reducedMotion,
                 onChanged: controller.busy
                     ? null
@@ -114,7 +176,7 @@ class SettingsScreen extends StatelessWidget {
                           await controller.setReducedMotion(value);
                         } catch (error) {
                           if (context.mounted) {
-                            message(context, errorText(error));
+                            message(context, errorText(context, error));
                           }
                         }
                       },
@@ -122,7 +184,7 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Panel(
           padding: EdgeInsets.zero,
           child: Column(
@@ -130,8 +192,8 @@ class SettingsScreen extends StatelessWidget {
               _row(
                 context,
                 LucideIcons.shapes,
-                '分类管理',
-                '自定义分类名称、图标和启用状态',
+                tr(context).categories,
+                tr(context).customizeNamesIconsAndEnabledStatus,
                 () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
@@ -139,12 +201,12 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              Divider(indent: 16, endIndent: 16),
               _row(
                 context,
                 LucideIcons.chartNoAxesCombined,
-                '月度预算',
-                '设置总预算和分类预算',
+                tr(context).monthlyBudget,
+                tr(context).setOverallAndCategoryBudgets,
                 () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
@@ -155,12 +217,12 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              Divider(indent: 16, endIndent: 16),
               _row(
                 context,
                 LucideIcons.messageSquare,
-                'AI 服务',
-                '可选联网分析 · 配置接口与管理本地聊天',
+                tr(context).aiService,
+                tr(context).optionalOnlineAnalysisConfigureServiceAndLocal,
                 () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
@@ -171,7 +233,7 @@ class SettingsScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Panel(
           padding: EdgeInsets.zero,
           child: Column(
@@ -179,8 +241,8 @@ class SettingsScreen extends StatelessWidget {
               _row(
                 context,
                 LucideIcons.download,
-                '导入微信账单',
-                'CSV / .xlsx · 预览、去重与分类确认',
+                tr(context).importWechatStatements,
+                tr(context).csvXlsxPreviewDeduplicationAndCategoryReview,
                 controller.busy
                     ? null
                     : () => Navigator.push(
@@ -191,41 +253,42 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              Divider(indent: 16, endIndent: 16),
               _row(
                 context,
                 LucideIcons.download,
-                '完整备份',
-                '包含全部账单、预算、小记及设置',
+                tr(context).fullBackup,
+                tr(context).includesAllEntriesBudgetsDailyNotesAnd,
                 controller.busy ? null : () => _backup(context),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              Divider(indent: 16, endIndent: 16),
               _row(
                 context,
                 LucideIcons.upload,
-                '恢复备份',
-                '使用简账 JSON 备份文件替换账本',
+                tr(context).restoreBackup,
+                tr(context).replaceTheLedgerUsingAJsonBackup,
                 controller.busy ? null : () => _restore(context),
               ),
-              const Divider(indent: 16, endIndent: 16),
+              Divider(indent: 16, endIndent: 16),
               _row(
                 context,
                 LucideIcons.fileSpreadsheet,
-                '导出全部账单',
-                'CSV 文件；筛选导出请前往账单页',
+                tr(context).exportAllEntries,
+                tr(context).csvFileExportFilteredEntriesFromThe,
                 controller.busy
                     ? null
                     : () async {
                         try {
                           final saved = await controller.exportCsv(
-                            const EntryFilter(),
+                            EntryFilter(),
+                            dialogTitle: tr(context).exportAllEntries,
                           );
                           if (saved && context.mounted) {
-                            message(context, '全部账单已导出');
+                            message(context, tr(context).allEntriesExported);
                           }
                         } catch (error) {
                           if (context.mounted) {
-                            message(context, errorText(error));
+                            message(context, errorText(context, error));
                           }
                         }
                       },
@@ -234,40 +297,45 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         if (controller.busy)
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(18),
             child: LinearProgressIndicator(),
           ),
-        const SizedBox(height: 22),
+        SizedBox(height: 22),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionTitle('数据与隐私'),
-              const SizedBox(height: 10),
+              SectionTitle(tr(context).dataAndPrivacy),
+              SizedBox(height: 10),
               Text(
-                '账本保存在这台设备上，无需账号，离线可用。只有你主动使用 AI 时，统计汇总和必要聊天上下文才发送到你配置的服务地址；不上传单笔账单、备注或小记。\n\n请定期保存账本备份。卸载应用或清除数据会删除本机账本及 AI 历史；AI 记录和密钥不包含在账本备份中。CSV 文件不用于恢复。账本备份未加密，请保存在信任的位置。',
+                tr(context).yourLedgerStaysOnThisDeviceWorks,
                 style: TextStyle(fontSize: 13, color: ink.muted, height: 1.7),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: 24),
         Text(
-          '简账 ${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.2.0-beta.2')} · 个人离线账本',
+          tr(context).pPersonalOfflineLedger(
+            (String.fromEnvironment(
+              'FLUTTER_BUILD_NAME',
+              defaultValue: '1.2.0-beta.2',
+            )).toString(),
+          ),
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodySmall,
         ),
         TextButton(
           onPressed: () => showLicensePage(
             context: context,
-            applicationName: '简账',
-            applicationVersion: const String.fromEnvironment(
+            applicationName: tr(context).message,
+            applicationVersion: String.fromEnvironment(
               'FLUTTER_BUILD_NAME',
               defaultValue: '1.2.0-beta.2',
             ),
           ),
-          child: const Text('开源许可'),
+          child: Text(tr(context).openSourceLicenses),
         ),
       ],
     );
@@ -280,11 +348,11 @@ class SettingsScreen extends StatelessWidget {
     String subtitle,
     VoidCallback? tap,
   ) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+    contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 6),
     leading: Icon(icon, size: 24, color: InkColors.of(context).ink),
     title: Text(title),
     subtitle: Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-    trailing: const Icon(LucideIcons.chevronRight, size: 18),
+    trailing: Icon(LucideIcons.chevronRight, size: 18),
     onTap: tap,
     enabled: tap != null,
   );
@@ -314,52 +382,55 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   Future<void> _edit(String id, BudgetStatus? status) async {
     final title = id.isEmpty
-        ? '月度总预算'
-        : '${widget.controller.category(id).name}预算';
+        ? tr(context).monthlyOverallBudget
+        : tr(context).pBudget(
+            (categoryLabel(context, widget.controller.category(id))).toString(),
+          );
     final amount = await _amountDialog(context, title, status?.limit);
     if (amount == null || !mounted) return;
     try {
       await widget.controller.setBudget(_month, id, amount < 0 ? null : amount);
       if (mounted) setState(_reload);
     } catch (error) {
-      if (mounted) message(context, errorText(error));
+      if (mounted) message(context, errorText(context, error));
     }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('月度预算')),
+    appBar: AppBar(title: Text(tr(context).monthlyBudget)),
     body: ListView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 30),
       children: [
         Row(
           children: [
             IconButton(
-              tooltip: '上个月',
+              tooltip: tr(context).previousMonth,
               onPressed: _month.year <= 1900
                   ? null
                   : () => setState(() {
                       _month = DateTime(_month.year, _month.month - 1);
                       _reload();
                     }),
-              icon: const Icon(LucideIcons.chevronLeft, size: 20),
+              icon: Icon(LucideIcons.chevronLeft, size: 20),
             ),
             Expanded(
               child: Text(
-                '${_month.year}年${_month.month}月',
+                tr(context)
+                    .pP((_month.year).toString(), (_month.month).toString()),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             IconButton(
-              tooltip: '下个月',
+              tooltip: tr(context).nextMonth,
               onPressed: _month.year >= 2100
                   ? null
                   : () => setState(() {
                       _month = DateTime(_month.year, _month.month + 1);
                       _reload();
                     }),
-              icon: const Icon(LucideIcons.chevronRight, size: 20),
+              icon: Icon(LucideIcons.chevronRight, size: 20),
             ),
           ],
         ),
@@ -367,9 +438,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
           onPressed: () async {
             if (!await confirm(
               context,
-              title: '复制上月预算？',
-              body: '只补充本月尚未设置的预算，不覆盖已有额度。',
-              action: '复制',
+              title: tr(context).copyLastMonthSBudgets,
+              body: tr(context).onlyAddsBudgetsNotYetSetThis,
+              action: tr(context).copy,
             )) {
               return;
             }
@@ -379,17 +450,19 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 setState(_reload);
                 message(
                   context,
-                  count == 0 ? '上月没有可复制的预算，或本月已全部设置' : '已复制 $count 项预算',
+                  count == 0
+                      ? tr(context).noBudgetsToCopyOrAllBudgets
+                      : tr(context).copiedPBudgets((count).toString()),
                 );
               }
             } catch (error) {
-              if (context.mounted) message(context, errorText(error));
+              if (context.mounted) message(context, errorText(context, error));
             }
           },
-          icon: const Icon(LucideIcons.copy, size: 16),
-          label: const Text('复制上月预算'),
+          icon: Icon(LucideIcons.copy, size: 16),
+          label: Text(tr(context).copyLastMonthSBudgets269),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         AsyncContent(
           future: _future,
           retry: () => setState(_reload),
@@ -402,23 +475,28 @@ class _BudgetScreenState extends State<BudgetScreen> {
             );
             return Column(
               children: [
-                _budget(context, '', '总支出预算', mapped['']),
-                const SizedBox(height: 20),
-                const Align(
+                _budget(
+                  context,
+                  '',
+                  tr(context).overallExpenseBudget,
+                  mapped[''],
+                ),
+                SizedBox(height: 20),
+                Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '分类预算',
+                    tr(context).categoryBudgets,
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 ...categories.map(
                   (category) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: EdgeInsets.only(bottom: 12),
                     child: _budget(
                       context,
                       category.id,
-                      category.name,
+                      categoryLabel(context, category),
                       mapped[category.id],
                     ),
                   ),
@@ -427,9 +505,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
             );
           },
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Text(
-          '总预算和分类预算分别统计，分类额度之和不必等于总预算。',
+          tr(context).overallAndCategoryBudgetsAreTrackedSeparately,
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -452,7 +530,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 categoryGlyph(widget.controller.category(id).icon),
                 size: 22,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
             ],
             Expanded(
               child: Text(
@@ -467,10 +545,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         if (status == null)
           Text(
-            '未设置 · 点击添加',
+            tr(context).notSetTapToAdd,
             style: TextStyle(color: InkColors.of(context).muted),
           )
         else
@@ -488,7 +566,7 @@ Future<int?> _amountDialog(
   final text = TextEditingController(
     text: cents == null ? '' : moneyInput(cents),
   );
-  String? error;
+  bool invalidAmount = false;
   final result = await showDialog<int>(
     context: context,
     builder: (context) => StatefulBuilder(
@@ -497,43 +575,45 @@ Future<int?> _amountDialog(
         content: TextField(
           controller: text,
           autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
           ],
           decoration: InputDecoration(
             prefixText: '¥ ',
-            hintText: '请输入预算金额',
-            errorText: error,
+            hintText: tr(context).enterBudgetAmount,
+            errorText: invalidAmount
+                ? tr(context).enterAValidAmountWithUpTo
+                : null,
           ),
         ),
         actions: [
           if (cents != null)
             TextButton(
               onPressed: () => Navigator.pop(context, -1),
-              child: const Text('移除预算'),
+              child: Text(tr(context).removeBudget),
             ),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            child: Text(tr(context).cancel),
           ),
           FilledButton(
             onPressed: () {
               final value = parseMoney(text.text);
               if (value == null) {
-                setState(() => error = '请输入有效金额，最多两位小数');
+                setState(() => invalidAmount = true);
                 return;
               }
               Navigator.pop(context, value);
             },
-            child: const Text('保存'),
+            child: Text(tr(context).save),
           ),
         ],
       ),
     ),
   );
   // The dialog route may still be animating while its text field is mounted.
-  await Future<void>.delayed(const Duration(milliseconds: 300));
+  await Future<void>.delayed(Duration(milliseconds: 300));
   text.dispose();
   return result;
 }
@@ -576,57 +656,54 @@ class _CategoryScreenState extends State<CategoryScreen> {
     try {
       await widget.controller.saveCategory(result);
     } catch (error) {
-      if (mounted) message(context, errorText(error));
+      if (mounted) message(context, errorText(context, error));
     }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('分类管理'),
+      title: Text(tr(context).categories),
       actions: [
         IconButton(
-          tooltip: '添加分类',
+          tooltip: tr(context).addCategory,
           onPressed: () => _edit(),
-          icon: const Icon(LucideIcons.plus),
+          icon: Icon(LucideIcons.plus),
         ),
       ],
     ),
     body: ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 30),
+      padding: EdgeInsets.fromLTRB(20, 4, 20, 30),
       children: [
         KindSwitch(
           value: _kind,
           onChanged: (kind) => setState(() => _kind = kind),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         ...widget.controller.categories
             .where((c) => c.kind == _kind)
             .map(
               (category) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(bottom: 10),
                 child: Panel(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 5,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                   child: Row(
                     children: [
                       Icon(categoryGlyph(category.icon), size: 24),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: InkWell(
                           onTap: () => _edit(category),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: EdgeInsets.symmetric(vertical: 14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(category.name),
+                                Text(categoryLabel(context, category)),
                                 Text(
                                   category.active
-                                      ? '点击修改名称或图标'
-                                      : '已停用 · 历史记录保留',
+                                      ? tr(context).tapToChangeNameOrIcon
+                                      : tr(context).disabledHistoryPreserved,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
                               ],
@@ -643,7 +720,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                             );
                           } catch (error) {
                             if (context.mounted) {
-                              message(context, errorText(error));
+                              message(context, errorText(context, error));
                             }
                           }
                         },
@@ -653,11 +730,18 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 ),
               ),
             ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: () => _edit(),
-          icon: const Icon(LucideIcons.plus, size: 18),
-          label: Text('添加${_kind == EntryKind.expense ? '支出' : '收入'}分类'),
+          icon: Icon(LucideIcons.plus, size: 18),
+          label: Text(
+            tr(context).addPCategory(
+              (_kind == EntryKind.expense
+                      ? tr(context).expenses
+                      : tr(context).income)
+                  .toString(),
+            ),
+          ),
         ),
       ],
     ),
@@ -681,7 +765,7 @@ class CategoryDialog extends StatefulWidget {
 class _CategoryDialogState extends State<CategoryDialog> {
   late TextEditingController _name;
   late String _icon;
-  String? _error;
+  bool _invalidName = false;
   @override
   void initState() {
     super.initState();
@@ -697,7 +781,11 @@ class _CategoryDialogState extends State<CategoryDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.category == null ? '添加分类' : '编辑分类'),
+    title: Text(
+      widget.category == null
+          ? tr(context).addCategory
+          : tr(context).editCategory,
+    ),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -705,9 +793,12 @@ class _CategoryDialogState extends State<CategoryDialog> {
           TextField(
             controller: _name,
             maxLength: 20,
-            decoration: InputDecoration(labelText: '分类名称', errorText: _error),
+            decoration: InputDecoration(
+              labelText: tr(context).categoryName,
+              errorText: _invalidName ? tr(context).enterACategoryName : null,
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Wrap(
             spacing: 5,
             runSpacing: 5,
@@ -741,12 +832,12 @@ class _CategoryDialogState extends State<CategoryDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('取消'),
+        child: Text(tr(context).cancel),
       ),
       FilledButton(
         onPressed: () {
           if (_name.text.trim().isEmpty) {
-            setState(() => _error = '请输入分类名称');
+            setState(() => _invalidName = true);
             return;
           }
           Navigator.pop(
@@ -761,7 +852,7 @@ class _CategoryDialogState extends State<CategoryDialog> {
                 ),
           );
         },
-        child: const Text('保存'),
+        child: Text(tr(context).save),
       ),
     ],
   );

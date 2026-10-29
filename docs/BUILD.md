@@ -20,6 +20,8 @@ flutter test --no-pub
 flutter build apk --debug --no-pub
 ```
 
+语言资源位于 `lib/l10n/*.arb`，配置见 `l10n.yaml`。`flutter pub get` 自动生成 `lib/l10n/generated/`（不提交生成文件），也可运行 `flutter gen-l10n`。修改翻译时同步四种语言的键和占位符，并运行语言回归测试；英文数量文案使用复数规则。`intl` 使用现有锁定版本，仅从间接依赖改为直接依赖。
+
 debug 产物为 `build/app/outputs/flutter-apk/app-debug.apk`。Flutter 会准备所需 Gradle 启动文件与本地配置。界面测试在 `output/test-artifacts/` 生成样例渲染图，不需要模拟器。GitHub Actions 已验证 Linux 环境的检查和 Android debug 构建。
 
 项目要求 Dart 3.13 及以上（本项目所列 Flutter 已包含）。依赖使用 Android 和 iOS 的共享 API，自动检查分别构建两端。整合版的检查和未验收项见 [本版验证记录](verification-1.2.0-beta.2.md)。
